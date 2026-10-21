@@ -219,3 +219,15 @@ el análisis y el modelado. Se documentarán:
 
 La ausencia de diferencias evidentes en estas revisiones no se
 interpretará como una garantía de ausencia de sesgos.
+
+## 8. Fuentes de datos
+
+Se utilizará el dataset Ames Iowa Housing, proporcionado por Duoc UC
+para esta evaluación.
+
+El archivo Ames_Iowa_Housing_Dataset.csv contiene 2.930 registros y
+82 columnas, incluida la variable objetivo SalePrice.
+
+El archivo original se conservará sin modificaciones en data/raw/.
+La documentación complementaria se encuentra en
+[data/README.md](data/README.md).
