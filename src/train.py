@@ -1,5 +1,6 @@
 """Funciones de entrenamiento y evaluación supervisada (Parte 2)."""
 
+import joblib
 import json
 import numpy as np
 import pandas as pd
@@ -15,6 +16,7 @@ from sklearn.pipeline import Pipeline
 
 from src.data_prep import cargar_y_separar, limpiar_datos
 from src.data_prep import construir_preprocesador
+from src.utils import MODELS
 
 
 RANDOM_STATE = 42
@@ -215,3 +217,19 @@ def tabla_markdown(df):
     for _, fila in df.iterrows():
         lineas.append("| " + " | ".join(str(v) for v in fila) + " |")
     return "\n".join(lineas)
+
+
+def guardar_modelo(pipeline, ruta=None):
+    """Guarda el Pipeline completo (preprocesamiento + modelo). Recibe datos crudos al predecir."""
+    ruta = MODELS / "best_model.joblib" if ruta is None else ruta
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(pipeline, ruta)
+    return ruta
+
+
+def guardar_resultados(tabla, ruta=None):
+    """Guarda la tabla comparativa de modelos (la consume la Parte 3)."""
+    ruta = MODELS / "results_supervised.csv" if ruta is None else ruta
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    tabla.to_csv(ruta, index=False)
+    return ruta
