@@ -1,5 +1,16 @@
 # Proyecto de Machine Learning: Predicción de precios de viviendas
 
+## Estado actual del proyecto
+
+La Parte 1 está implementada: comprensión de datos, diagnóstico de calidad,
+análisis exploratorio y preparación reproducible. Se verificó la ejecución
+completa del notebook 01 y la carga de los archivos procesados.
+
+El entrenamiento supervisado, la evaluación de modelos, el clustering y las
+recomendaciones finales corresponden a las siguientes partes. Los objetivos
+y metas de esas etapas son compromisos de trabajo, no resultados obtenidos.
+
+
 ## 1. Problema de negocio
 
 Para este proyecto se plantea el caso de una inmobiliaria que necesita
@@ -107,7 +118,7 @@ Estos efectos requieren una evaluación operacional adicional.
 
 ## 6. Metodología: CRISP-DM
 
-El proyecto se organizará mediante las seis fases de CRISP-DM.
+El proyecto se organiza mediante las seis fases de CRISP-DM.
 Cada fase tendrá actividades y evidencias asociadas dentro del repositorio.
 
 La siguiente tabla describe la implementación prevista. Las evidencias
@@ -139,9 +150,8 @@ sus resultados y las justificaciones correspondientes.
   procesados.
 - src/utils.py: utilidades compartidas y función load_data() para
   entregar los conjuntos de entrenamiento y prueba.
-- src/train.py: funciones de entrenamiento del modelado supervisado.
-- src/predict.py: generación de predicciones a partir de los artefactos
-  entrenados.
+- src/train.py: archivo reservado para las funciones de entrenamiento de la Parte 2; pendiente de implementación.
+- src/predict.py: archivo reservado para la generación de predicciones con artefactos entrenados; pendiente de implementación.
 - notebooks/: diagnóstico, análisis, explicación de decisiones,
   resultados y conclusiones.
 
@@ -159,7 +169,10 @@ mediante llamadas a las funciones correspondientes.
   aprendidas dentro de cada partición de entrenamiento.
 - Seleccionar modelos e hiperparámetros sin utilizar el conjunto
   de prueba.
-- Reservar el conjunto de prueba para la evaluación final.
+- Reservar el conjunto de prueba para la evaluación final de los modelos,
+  sin utilizarlo para seleccionar algoritmos ni hiperparámetros.
+- Reconocer que el EDA inicial utilizó el dataset completo: prueba no
+  estuvo completamente aislada de la exploración.
 - Utilizar random_state=42 en las operaciones aleatorias que admitan
   este parámetro.
 - Mantener las rutas, dependencias e instrucciones necesarias para
@@ -222,12 +235,245 @@ interpretará como una garantía de ausencia de sesgos.
 
 ## 8. Fuentes de datos
 
-Se utilizará el dataset Ames Iowa Housing, proporcionado por Duoc UC
+Se utiliza el dataset Ames Iowa Housing, proporcionado por Duoc UC
 para esta evaluación.
 
 El archivo Ames_Iowa_Housing_Dataset.csv contiene 2.930 registros y
 82 columnas, incluida la variable objetivo SalePrice.
 
-El archivo original se conservará sin modificaciones en data/raw/.
+El archivo original se conserva sin modificaciones en data/raw/.
 La documentación complementaria se encuentra en
 [data/README.md](data/README.md).
+
+## 9. Calidad de datos y análisis exploratorio
+
+### 9.1. Diagnóstico de calidad
+
+El diagnóstico se desarrolla en
+[notebooks/01_comprension_eda_preparacion.ipynb](notebooks/01_comprension_eda_preparacion.ipynb).
+
+- El dataset contiene 2.930 registros y 82 columnas.
+- No se encontraron filas completamente duplicadas ni repeticiones en
+  los identificadores Order y PID.
+- SalePrice no presenta valores ausentes, ceros ni valores negativos.
+- La lectura predeterminada del CSV mezcla campos vacíos con códigos
+  como "NA" y "None". En Mas Vnr Type, los 1.775 valores inicialmente
+  interpretados como ausentes incluyen 1.752 textos "None" y 23 campos vacíos.
+- Se identificaron cuatro viviendas con alertas de coherencia temporal.
+  Las seis alertas se superponen entre esos registros; destaca
+  Garage Yr Blt = 2207.
+- La regla exploratoria de 1,5 × IQR marcó 127 observaciones en Lot Area,
+  75 en Gr Liv Area, 123 en Total Bsmt SF y 137 en SalePrice.
+  Los grupos pueden superponerse y no representan errores confirmados.
+
+No se eliminaron variables únicamente por su porcentaje inicial de nulos
+ni viviendas únicamente por superar los límites IQR.
+
+### 9.2. Principales hallazgos
+
+| Hallazgo | Evidencia observada | Relevancia para el negocio |
+|---|---|---|
+| Distribución asimétrica del precio | Media de 180.796,06 y mediana de 160.000; el 50 % central está entre 129.500 y 213.500. | Una sola referencia no representa toda la variedad de viviendas; conviene evaluar posteriormente los errores por rango de precio. |
+| Asociación entre superficie habitable y precio | Correlación de Pearson de 0,707 entre Gr Liv Area y SalePrice. | La superficie ayuda a comparar propiedades, pero no resulta suficiente por sí sola. |
+| Diferencias según calidad general | Mediana de 133.000 en Overall Qual = 5 y de 264.530,50 en Overall Qual = 8. | La calidad aporta contexto para comparar viviendas; los grupos pequeños requieren cautela. |
+| Diferencias entre barrios | Medianas de 88.250 en MeadowV y 319.000 en StoneBr. | La ubicación debe interpretarse junto con las características de las viviendas y el tamaño de cada grupo. |
+| Asociación entre año de construcción y precio | Correlación de Pearson de 0,558 entre Year Built y SalePrice. | La antigüedad debe complementarse con remodelaciones, calidad, superficie y barrio. |
+
+Entre las variables seleccionadas para la matriz de correlaciones,
+Overall Qual presenta la mayor correlación de Pearson con SalePrice (0,799).
+También se observan relaciones elevadas entre predictores, como Garage Cars
+y Garage Area (aproximadamente 0,89). No se eliminaron variables por
+superar un umbral de correlación.
+
+Estos resultados describen asociaciones, no efectos causales ni una
+medida definitiva de importancia predictiva. Las diferencias entre
+barrios no permiten atribuir características a sus habitantes.
+
+### 9.3. Figuras del EDA
+
+El notebook muestra y guarda las figuras en images/. Pueden consultarse
+individualmente desde estos enlaces relativos:
+
+- [Distribución del precio](images/eda_distribucion_saleprice.png).
+- [Superficie habitable y precio](images/eda_superficie_precio.png).
+- [Calidad general y precio](images/eda_calidad_precio.png).
+- [Barrio y precio](images/eda_barrio_precio.png).
+- [Año de construcción y precio](images/eda_anio_construccion_precio.png).
+- [Matriz de correlaciones](images/eda_matriz_correlaciones.png).
+
+## 10. Preparación de datos
+
+La lógica reutilizable está implementada en src/data_prep.py y se ejecuta
+una sola vez desde el notebook mediante preparar_y_guardar().
+
+### 10.1. Decisiones implementadas
+
+| Elemento | Tratamiento y justificación |
+|---|---|
+| Lectura | Preservar los textos "NA" y "None"; interpretar campos vacíos como ausentes. |
+| Objetivo | Separar SalePrice y conservar su escala original; exportarlo con el nombre target. |
+| Identificadores | Excluir Order y PID de los predictores por su función identificadora. |
+| Partición | 80 % entrenamiento y 20 % prueba, con random_state=42. No se definieron estratos para el objetivo continuo. |
+| MS SubClass | Convertir a categoría textual para no interpretar sus códigos como distancias numéricas. |
+| Garage Yr Blt = 2207 | Convertir en ausente sin inventar el año correcto. |
+| Otras alertas temporales | Conservarlas ante la falta de evidencia para identificar el campo incorrecto. |
+| Valores extremos | Conservarlos cuando no exista evidencia suficiente de error. |
+| Nulos numéricos | Imputar con la mediana aprendida en entrenamiento, evitando eliminar filas. |
+| Nulos categóricos | Imputar con "Desconocido", distinguiendo los vacíos de los códigos originales y sin atribuir la categoría más frecuente. |
+| Categorías | Aplicar OneHotEncoder con handle_unknown="ignore". Las categorías nuevas no detienen la transformación. |
+| Escalas | Aplicar StandardScaler a las variables numéricas para disponer de una representación común. No todos los modelos necesitan este escalado. |
+
+El preprocesador se ajusta únicamente con entrenamiento mediante
+fit_transform(). Prueba se transforma con transform(), sin volver
+a aprender medianas, categorías ni parámetros de escalado.
+
+### 10.2. Archivos generados
+
+| Archivo | Filas | Columnas | Contenido |
+|---|---:|---:|---|
+| data/processed/train.csv | 2.344 | 340 | 339 predictores transformados y target. |
+| data/processed/test.csv | 586 | 340 | 339 predictores transformados y target. |
+| data/processed/features_full.csv | 2.930 | 339 | Predictores de todos los registros, sin target. |
+| data/processed/referencia_filas.csv | 2.930 | 1 | Índice original correspondiente a cada fila de features_full.csv. |
+| models/preprocesador.joblib | No aplica | No aplica | Preprocesador ajustado con entrenamiento. |
+
+features_full.csv combina los predictores transformados de entrenamiento
+y prueba, ordenados por el índice original. No se vuelve a ajustar el
+preprocesador con el conjunto completo.
+
+### 10.3. Interfaz de carga
+
+La función de src/utils.py devuelve los cuatro objetos acordados:
+
+```python
+from src.utils import load_data
+
+X_train, X_test, y_train, y_test = load_data()
+```
+
+Dimensiones verificadas:
+
+| Objeto | Filas | Variables |
+|---|---:|---:|
+| X_train | 2.344 | 339 |
+| X_test | 586 | 339 |
+| y_train | 2.344 | 1 |
+| y_test | 586 | 1 |
+
+y_train y y_test son Series con una sola variable objetivo.
+
+La función también admite la carga de un archivo individual:
+
+```python
+features_full = load_data("features_full.csv")
+referencia_filas = load_data("referencia_filas.csv")
+```
+
+La carga no realiza una nueva partición ni reajusta el preprocesador.
+Se comprobaron la exclusión de target de los predictores, la igualdad
+de columnas y su orden, la alineación entre predictores y objetivo,
+y la ausencia de valores nulos.
+
+Los índices de train y test se reconstruyen al leer sus CSV; no son los
+identificadores originales ni demuestran por sí solos que no haya
+viviendas compartidas entre conjuntos.
+
+### 10.4. Limitaciones y continuidad metodológica
+
+- El EDA se realizó sobre el dataset completo. Prueba no estuvo totalmente
+  aislada de la exploración; no se utilizará para nuevas decisiones de
+  preparación, selección de modelos o ajuste de hiperparámetros.
+- La imputación por columna no garantiza coherencia entre variables
+  relacionadas. Las alertas temporales no corregidas siguen siendo
+  limitaciones del dataset preparado.
+- Para validación cruzada, la Parte 2 deberá usar los datos anteriores a
+  las transformaciones aprendidas y ajustar el preprocesamiento dentro
+  de cada partición mediante un pipeline. Los CSV ya transformados no
+  sustituyen ese ajuste. Pueden reutilizarse cargar_y_separar(),
+  limpiar_datos() y construir_preprocesador() de src/data_prep.py.
+- La revisión de disponibilidad de variables al momento de la estimación,
+  planteada en el alcance, debe confirmarse antes de cerrar el modelado.
+- La correspondencia de referencia_filas.csv permite recuperar las
+  características originales para describir segmentos. Debe preservarse
+  el orden de las filas al vincular archivos.
+
+## 11. Reproducción de la Parte 1
+
+### 11.1. Preparación del entorno
+
+Desde una terminal en la raíz del proyecto:
+
+```bash
+python -m venv .venv
+```
+
+Activación en Git Bash para Windows:
+
+```bash
+source .venv/Scripts/activate
+```
+
+En PowerShell, como alternativa:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+Instalar las dependencias fijadas en el repositorio:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### 11.2. Ejecución
+
+1. Verificar la presencia de data/raw/Ames_Iowa_Housing_Dataset.csv.
+2. Abrir el proyecto en VS Code.
+3. Abrir notebooks/01_comprension_eda_preparacion.ipynb.
+4. Seleccionar el kernel del entorno .venv.
+5. Reiniciar el kernel y ejecutar todas las celdas en orden.
+6. Guardar el notebook con las salidas visibles.
+
+La preparación crea las carpetas de salida necesarias, guarda figuras,
+genera o reemplaza los CSV procesados y persiste el preprocesador.
+El CSV original no se modifica.
+
+Las importaciones de src requieren que la raíz del proyecto esté
+incluida en la ruta de importación. El notebook configura esta ruta
+automáticamente cuando se abre desde la raíz o desde notebooks/.
+
+### 11.3. Evidencia de ejecución y alcance de la verificación
+
+Se verificó localmente la ejecución completa del notebook revisado y la
+carga de los archivos generados. Esta comprobación no equivale todavía
+a la prueba integral del proyecto en un entorno limpio, prevista para
+la entrega final después de completar las Partes 2 y 3.
+
+## 12. Entrega y trabajo pendiente
+
+### Parte 1: implementada
+
+- Definición del problema, objetivos y KPIs.
+- Metodología CRISP-DM y evaluación ética inicial.
+- Diagnóstico de calidad y cinco hallazgos exploratorios.
+- Preparación reproducible, exportación y persistencia del preprocesador.
+- Interfaz de carga y comprobaciones de los datos preparados.
+- Resumen de resultados e instrucciones de ejecución en este documento.
+
+La documentación de fuente y licencia debe mantenerse en data/README.md.
+La redistribución del CSV está sujeta a la comprobación de sus condiciones
+de uso; esta entrega no afirma una licencia que no haya sido verificada.
+
+### Partes 2 y 3: pendientes
+
+- Implementar y comparar al menos dos modelos de regresión.
+- Aplicar validación cruzada y ajuste de hiperparámetros.
+- Calcular MAE, RMSE y R² y comprobar las metas de negocio propuestas.
+- Guardar el mejor modelo y la tabla de resultados.
+- Aplicar una técnica no supervisada y caracterizar los segmentos.
+- Formular recomendaciones sustentadas en resultados.
+- Actualizar la evaluación ética, verificar el proyecto completo y
+  preparar la presentación y defensa.
+
+No se presentan métricas, segmentos ni beneficios operacionales como
+resultados obtenidos mientras esas actividades no estén implementadas.
