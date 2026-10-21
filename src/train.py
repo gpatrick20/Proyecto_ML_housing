@@ -3,6 +3,7 @@
 import numpy as np
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.dummy import DummyRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, cross_val_predict
@@ -96,3 +97,8 @@ def evaluar_metas(metricas, mae_referencia):
         "Cumple_cobertura": bool(metricas["Cobertura_10"] >= META_COBERTURA),
         "Cumple_mejora": bool(mejora >= META_MEJORA_MAE),
     }
+
+
+def construir_boosting(**parametros):
+    """Ensamble de árboles con gradient boosting (HistGradientBoostingRegressor)."""
+    return HistGradientBoostingRegressor(random_state=RANDOM_STATE, **parametros)
