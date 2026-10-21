@@ -1,9 +1,12 @@
 """Funciones de entrenamiento y evaluación supervisada (Parte 2)."""
 
+import json
 import numpy as np
+import pandas as pd
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.inspection import permutation_importance
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
 from sklearn.model_selection import GridSearchCV
@@ -126,3 +129,89 @@ def buscar_hiperparametros(estimador, grilla, X, y, cv=None):
         n_jobs=-1, refit=True,
     )
     return busqueda.fit(X, y)
+
+
+def fila_resultado(nombre, familia, hiperparametros, m_cv, m_prueba,
+                   mae_referencia_prueba=None, seleccionado=False):
+    """Una fila de la tabla comparativa (validación cruzada y prueba)."""
+    fila = {
+        "modelo": nombre,
+        "familia": familia,
+        "hiperparametros": json.dumps(hiperparametros, default=str, ensure_ascii=False),
+        "MAE_CV": m_cv["MAE"], "RMSE_CV": m_cv["RMSE"],
+        "R2_CV": m_cv["R2"], "Cobertura10_CV": m_cv["Cobertura_10"],
+        "MAE_prueba": m_prueba["MAE"], "RMSE_prueba": m_prueba["RMSE"],
+        "R2_prueba": m_prueba["R2"], "Cobertura10_prueba": m_prueba["Cobertura_10"],
+        "Mejora_MAE_prueba": None, "Cumple_meta_cobertura": None,
+        "Cumple_meta_mejora": None, "seleccionado": bool(seleccionado),
+    }
+    if mae_referencia_prueba is not None:
+        metas = evaluar_metas(m_prueba, mae_referencia_prueba)
+        fila["Mejora_MAE_prueba"] = metas["Mejora_MAE"]
+        fila["Cumple_meta_cobertura"] = metas["Cumple_cobertura"]
+        fila["Cumple_meta_mejora"] = metas["Cumple_mejora"]
+    return fila
+
+
+def importancia_permutacion(estimador, X, y, n_repeats=10):
+    """Importancia por permutación sobre las variables originales (aumento del MAE en USD)."""
+    resultado = permutation_importance(
+        estimador, X, y, scoring="neg_mean_absolute_error",
+        n_repeats=n_repeats, random_state=RANDOM_STATE,
+    )
+    return (
+        pd.DataFrame({
+            "Variable": X.columns,
+            "Aumento_MAE": resultado.importances_mean,
+            "Desv": resultado.importances_std,
+        })
+        .sort_values("Aumento_MAE", ascending=False)
+        .reset_index(drop=True)
+    )
+
+
+def coeficientes_ridge(pipeline):
+    """Coeficientes del Ridge (variables estandarizadas, escala log de SalePrice)."""
+    nombres = pipeline.named_steps["prep"].get_feature_names_out()
+    coeficientes = pipeline.named_steps["modelo"].regressor_.coef_
+    tabla = pd.DataFrame({
+        "Variable": [n.split("__", 1)[-1] for n in nombres],
+        "Coeficiente": coeficientes,
+    })
+    return tabla.reindex(tabla["Coeficiente"].abs().sort_values(ascending=False).index).reset_index(drop=True)
+
+
+def rangos_precio(y_train, y, cortes=(0.25, 0.5, 0.75)):
+    """Asigna cada precio a un rango definido con los cuartiles del entrenamiento."""
+    q = np.quantile(y_train, cortes)
+    etiquetas = [
+        f"Q1: hasta {q[0]:,.0f}",
+        f"Q2: {q[0]:,.0f}-{q[1]:,.0f}",
+        f"Q3: {q[1]:,.0f}-{q[2]:,.0f}",
+        f"Q4: más de {q[2]:,.0f}",
+    ]
+    return pd.cut(y, bins=[-np.inf, *q, np.inf], labels=etiquetas)
+
+
+def error_por_grupo(resultados, columna, min_n=10):
+    """Error por grupo. Requiere las columnas y_real, y_pred y la columna de agrupación."""
+    r = resultados.assign(error_abs=(resultados["y_pred"] - resultados["y_real"]).abs())
+    r["error_rel"] = r["error_abs"] / r["y_real"]
+    tabla = (
+        r.groupby(columna, observed=True)
+        .agg(n=("y_real", "size"), MAE=("error_abs", "mean"),
+             Error_rel_mediano=("error_rel", "median"),
+             Cobertura_10=("error_rel", lambda s: (s <= TOLERANCIA).mean()))
+        .reset_index()
+    )
+    tabla["Muestra_suficiente"] = tabla["n"] >= min_n
+    return tabla.sort_values("n", ascending=False).reset_index(drop=True)
+
+
+def tabla_markdown(df):
+    """Convierte un DataFrame ya formateado a tabla Markdown (para pegar en el README)."""
+    columnas = list(df.columns)
+    lineas = ["| " + " | ".join(columnas) + " |", "|" + "|".join(["---"] * len(columnas)) + "|"]
+    for _, fila in df.iterrows():
+        lineas.append("| " + " | ".join(str(v) for v in fila) + " |")
+    return "\n".join(lineas)
