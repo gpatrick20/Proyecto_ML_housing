@@ -464,16 +464,48 @@ La documentación de fuente y licencia debe mantenerse en data/README.md.
 La redistribución del CSV está sujeta a la comprobación de sus condiciones
 de uso; esta entrega no afirma una licencia que no haya sido verificada.
 
-### Partes 2 y 3: pendientes
 
-- Implementar y comparar al menos dos modelos de regresión.
-- Aplicar validación cruzada y ajuste de hiperparámetros.
-- Calcular MAE, RMSE y R² y comprobar las metas de negocio propuestas.
-- Guardar el mejor modelo y la tabla de resultados.
-- Aplicar una técnica no supervisada y caracterizar los segmentos.
-- Formular recomendaciones sustentadas en resultados.
-- Actualizar la evaluación ética, verificar el proyecto completo y
-  preparar la presentación y defensa.
+##PARTE 2:
 
-No se presentan métricas, segmentos ni beneficios operacionales como
-resultados obtenidos mientras esas actividades no estén implementadas.
+## Modelado supervisado
+
+**Modelos.** Se compararon dos modelos de regresión de familias distintas, con el mismo split (80 %/20 %,
+`random_state=42`), validación cruzada de 5 particiones y las mismas métricas:
+
+- **Ridge** (lineal regularizado, objetivo `log1p(SalePrice)`): baseline simple e interpretable.
+- **Gradient boosting** (`HistGradientBoostingRegressor`): ensamble de árboles que captura relaciones no lineales e interacciones.
+
+**Preparación.** El preprocesamiento (imputación, escalado y codificación) forma parte del Pipeline y se ajusta
+dentro de cada partición de entrenamiento. Se excluyeron `Sale Type` y `Sale Condition` por conocerse solo al cerrar la venta.
+
+**Configuración.** Ajuste con `GridSearchCV` (criterio: MAE en validación cruzada, sin usar la prueba).
+Ridge ajustado: `{"modelo__regressor__alpha": 1}`.
+Boosting ajustado: `{"modelo__l2_regularization": 1.0, "modelo__learning_rate": 0.03, "modelo__max_depth": null, "modelo__max_iter": 400}`.
+
+**Resultados.**
+
+| Modelo | MAE CV (USD) | MAE prueba (USD) | RMSE prueba (USD) | R² prueba | Cobertura ±10 % prueba |
+|---|---|---|---|---|---|
+| Referencia (mediana) | 54,123 | 63,838 | 94,323 | -0.110 | 18.6% |
+| Ridge base | 16,064 | 14,940 | 32,246 | 0.870 | 75.1% |
+| Ridge ajustado | 16,064 | 14,940 | 32,246 | 0.870 | 75.1% |
+| Boosting base | 14,917 | 15,624 | 27,027 | 0.909 | 74.2% |
+| Boosting ajustado | 14,635 | 15,350 | 27,285 | 0.907 | 74.7% |
+
+**Modelo seleccionado:** Boosting ajustado (menor MAE en validación cruzada: 14,635 USD).
+En prueba obtuvo un MAE de 15,350 USD, una mejora de 76.0% respecto de la referencia
+de la mediana (meta >= 15%: cumple) y una cobertura ±10 % de 74.7%
+(meta >= 70%: cumple). Las metas no se modificaron a partir de estos resultados.
+
+**Interpretación inicial.** Las métricas describen el desempeño sobre las 586 viviendas de prueba del dataset Ames;
+no demuestran beneficios operacionales ni validez en otros mercados. Los errores se revisaron por barrio y rango de precio
+(`images/modelos_error_barrio.png`); los grupos con pocas viviendas no permiten conclusiones firmes. La importancia de variables
+expresa asociaciones predictivas, no efectos causales. Las recomendaciones corresponden a la Parte 3.
+
+**Artefactos.** `models/best_model.joblib` (Pipeline completo, recibe datos crudos), `models/results_supervised.csv`,
+`src/train.py`, `src/predict.py` e imágenes `images/modelos_*.png`.
+
+
+### Parte 3: pendientes
+
+
