@@ -1,9 +1,15 @@
 """Funciones de entrenamiento y evaluación supervisada (Parte 2)."""
 
 import numpy as np
+from sklearn.compose import TransformedTargetRegressor
+from sklearn.dummy import DummyRegressor
+from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
+from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.pipeline import Pipeline
 
 from src.data_prep import cargar_y_separar, limpiar_datos
+from src.data_prep import construir_preprocesador
 
 
 RANDOM_STATE = 42
@@ -40,4 +46,53 @@ def calcular_metricas(y_real, y_pred):
         "RMSE": float(np.sqrt(np.mean(error ** 2))),
         "R2": float(r2_score(y_real, y_pred)),
         "Cobertura_10": float(np.mean(np.abs(error) / np.abs(y_real) <= TOLERANCIA)),
+    }
+
+
+def crear_cv(n_splits=5):
+    """Validación cruzada de 5 particiones con semilla fija."""
+    return KFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
+
+
+def construir_pipeline(regresor, X, log_objetivo=False):
+    """Pipeline completo: preprocesador (se ajusta dentro de cada partición) + regresor.
+
+    Con log_objetivo=True el modelo aprende log1p(SalePrice) y devuelve predicciones en USD.
+    """
+    if log_objetivo:
+        regresor = TransformedTargetRegressor(
+            regressor=regresor, func=np.log1p, inverse_func=np.expm1
+        )
+    return Pipeline([("prep", construir_preprocesador(X)), ("modelo", regresor)])
+
+
+def construir_ridge(alpha=1.0):
+    """Modelo lineal regularizado: baseline simple e interpretable."""
+    return Ridge(alpha=alpha)
+
+
+def referencia_mediana(X, y):
+    """Referencia del KPI: predice la mediana de SalePrice del entrenamiento para todas las viviendas."""
+    return DummyRegressor(strategy="median").fit(X, y)
+
+
+def validacion_cruzada(estimador, X, y, cv=None):
+    """Predicciones fuera de muestra con validación cruzada y sus métricas."""
+    cv = crear_cv() if cv is None else cv
+    predicciones = cross_val_predict(estimador, X, y, cv=cv)
+    return calcular_metricas(y, predicciones), predicciones
+
+
+def evaluar(estimador, X, y):
+    """Métricas de un estimador ya ajustado sobre (X, y)."""
+    return calcular_metricas(y, estimador.predict(X))
+
+
+def evaluar_metas(metricas, mae_referencia):
+    """Compara las métricas con las metas del README (cobertura y mejora del MAE)."""
+    mejora = 1 - metricas["MAE"] / mae_referencia
+    return {
+        "Mejora_MAE": float(mejora),
+        "Cumple_cobertura": bool(metricas["Cobertura_10"] >= META_COBERTURA),
+        "Cumple_mejora": bool(mejora >= META_MEJORA_MAE),
     }
