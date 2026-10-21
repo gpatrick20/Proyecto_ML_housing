@@ -6,6 +6,7 @@ from sklearn.dummy import DummyRegressor
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import KFold, cross_val_predict
 from sklearn.pipeline import Pipeline
 
@@ -102,3 +103,26 @@ def evaluar_metas(metricas, mae_referencia):
 def construir_boosting(**parametros):
     """Ensamble de árboles con gradient boosting (HistGradientBoostingRegressor)."""
     return HistGradientBoostingRegressor(random_state=RANDOM_STATE, **parametros)
+
+
+# Los nombres siguen la convención de Pipeline: <paso>__<parametro>.
+GRILLA_RIDGE = {
+    "modelo__regressor__alpha": [0.1, 0.3, 1, 3, 10, 30, 100],
+}
+
+GRILLA_BOOSTING = {
+    "modelo__learning_rate": [0.03, 0.05, 0.1],
+    "modelo__max_depth": [3, 6, None],
+    "modelo__max_iter": [200, 400],
+    "modelo__l2_regularization": [0.0, 1.0],
+}
+
+
+def buscar_hiperparametros(estimador, grilla, X, y, cv=None):
+    """GridSearchCV que minimiza el MAE en validación cruzada (solo con datos de entrenamiento)."""
+    cv = crear_cv() if cv is None else cv
+    busqueda = GridSearchCV(
+        estimador, grilla, cv=cv, scoring="neg_mean_absolute_error",
+        n_jobs=-1, refit=True,
+    )
+    return busqueda.fit(X, y)
