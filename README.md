@@ -2,14 +2,16 @@
 
 ## Estado actual del proyecto
 
-La Parte 1 está implementada: comprensión de datos, diagnóstico de calidad,
-análisis exploratorio y preparación reproducible. Se verificó la ejecución
-completa del notebook 01 y la carga de los archivos procesados.
+Las Partes 1 y 2 están implementadas. La Parte 1 incluye la comprensión de
+datos, el diagnóstico de calidad, el análisis exploratorio y la preparación
+reproducible. La Parte 2 incluye el entrenamiento y la comparación de dos
+modelos de regresión, su evaluación y la persistencia del modelo seleccionado.
 
-El entrenamiento supervisado, la evaluación de modelos, el clustering y las
-recomendaciones finales corresponden a las siguientes partes. Los objetivos
-y metas de esas etapas son compromisos de trabajo, no resultados obtenidos.
+El clustering y las recomendaciones finales corresponden a la Parte 3. Los
+objetivos y metas de esa etapa son compromisos de trabajo, no resultados
+obtenidos.
 
+Los resultados de la Parte 2 se resumen en la sección 12.
 
 ## 1. Problema de negocio
 
@@ -63,6 +65,7 @@ de propiedades para apoyar la interpretación de los resultados.
 
 6. Antes de la entrega final, formular al menos tres recomendaciones
    sustentadas en los resultados, indicando sus limitaciones.
+
 ## 4. Indicadores de éxito del proyecto
 
 ### 4.1. KPIs orientados al negocio
@@ -132,8 +135,8 @@ en esta tabla no significa que las actividades ya estén terminadas.
 | 1. Comprensión del negocio | Definir el escenario de la inmobiliaria, la decisión que se busca apoyar, los objetivos, los KPIs y las limitaciones del uso de predicciones. | README.md: problema, objetivos, indicadores de éxito y alcance. |
 | 2. Comprensión de los datos | Documentar la fuente y el significado de las variables. Revisar dimensiones, tipos, valores ausentes, duplicados, distribuciones y relaciones con SalePrice. | data/README.md y notebooks/01_comprension_eda_preparacion.ipynb: diagnóstico de calidad y EDA. |
 | 3. Preparación de los datos | Definir las variables utilizables, separar entrenamiento y prueba y aplicar las transformaciones justificadas. Generar los archivos de datos preparados. | src/data_prep.py, src/utils.py, notebook 01 y data/processed/. |
-| 4. Modelado | Entrenar y comparar al menos dos modelos de regresión. Aplicar una técnica no supervisada para identificar segmentos de viviendas. Justificar algoritmos y configuraciones. | notebooks/02_modelos_supervisados.ipynb, notebooks/03_no_supervisado_y_conclusiones.ipynb y models/. |
-| 5. Evaluación | Comparar el desempeño mediante MAE, RMSE y R², comprobar las metas propuestas y analizar errores y limitaciones. Evaluar la coherencia y utilidad de los segmentos identificados. | Notebooks 02 y 03, tabla comparativa de resultados y conclusiones del README.md. |
+| 4. Modelado | La Parte 2 implementa y compara dos modelos de regresión. La aplicación de una técnica no supervisada para identificar segmentos de viviendas queda para la Parte 3. | Notebook de modelado supervisado, `src/train.py`, `models/` y, para la Parte 3, `notebooks/03_no_supervisado_y_conclusiones.ipynb`. |
+| 5. Evaluación | La Parte 2 compara los modelos mediante MAE, RMSE, R² y cobertura ±10 %, comprueba las metas y analiza errores y limitaciones. La evaluación de segmentos queda para la Parte 3. | Resultados supervisados, `models/results_supervised.csv`, análisis de errores y conclusiones del README.md; evaluación de segmentos en la Parte 3. |
 | 6. Despliegue y comunicación | Entregar una solución académica reproducible, documentar su ejecución y comunicar resultados, recomendaciones y restricciones de uso. | README.md con instrucciones de reproducción, scripts, notebooks, modelos guardados y presentacion/. |
 
 En este proyecto, la fase de despliegue se limitará a la entrega
@@ -150,8 +153,8 @@ sus resultados y las justificaciones correspondientes.
   procesados.
 - src/utils.py: utilidades compartidas y función load_data() para
   entregar los conjuntos de entrenamiento y prueba.
-- src/train.py: archivo reservado para las funciones de entrenamiento de la Parte 2; pendiente de implementación.
-- src/predict.py: archivo reservado para la generación de predicciones con artefactos entrenados; pendiente de implementación.
+- src/train.py: funciones de entrenamiento, validación cruzada, métricas, ajuste de hiperparámetros, explicabilidad y análisis de errores de la Parte 2.
+- src/predict.py: carga `models/best_model.joblib` y genera predicciones a partir de datos crudos.
 - notebooks/: diagnóstico, análisis, explicación de decisiones,
   resultados y conclusiones.
 
@@ -221,8 +224,11 @@ de redistribución. No se asumirá que un archivo puede redistribuirse
 
 ### 7.3. Revisión al finalizar el proyecto
 
-Esta evaluación se actualizará con las evidencias obtenidas durante
-el análisis y el modelado. Se documentarán:
+La revisión se actualiza con los resultados de la Parte 2 y se completará
+al finalizar la Parte 3. En la prueba se observaron diferencias de cobertura
+entre rangos de precio y barrios; estos resultados sirven para identificar
+grupos que requieren revisión, pero no demuestran por sí solos sesgo ni sus
+causas. Se documentarán:
 
 - Las diferencias de error detectadas entre grupos de viviendas.
 - Los grupos con pocos registros y las limitaciones de su evaluación.
@@ -230,8 +236,8 @@ el análisis y el modelado. Se documentarán:
   poco representadas.
 - Las restricciones de interpretación y uso del modelo final.
 
-La ausencia de diferencias evidentes en estas revisiones no se
-interpretará como una garantía de ausencia de sesgos.
+La ausencia o presencia de diferencias observadas no garantiza, por sí sola,
+la ausencia o presencia de sesgos.
 
 ## 8. Fuentes de datos
 
@@ -386,18 +392,20 @@ viviendas compartidas entre conjuntos.
 - La imputación por columna no garantiza coherencia entre variables
   relacionadas. Las alertas temporales no corregidas siguen siendo
   limitaciones del dataset preparado.
-- Para validación cruzada, la Parte 2 deberá usar los datos anteriores a
-  las transformaciones aprendidas y ajustar el preprocesamiento dentro
-  de cada partición mediante un pipeline. Los CSV ya transformados no
-  sustituyen ese ajuste. Pueden reutilizarse cargar_y_separar(),
-  limpiar_datos() y construir_preprocesador() de src/data_prep.py.
-- La revisión de disponibilidad de variables al momento de la estimación,
-  planteada en el alcance, debe confirmarse antes de cerrar el modelado.
+- Para la validación cruzada, la Parte 2 usa los datos anteriores a las
+  transformaciones aprendidas y ajusta el preprocesamiento dentro de cada
+  partición mediante un pipeline (src/train.py), reutilizando
+  cargar_y_separar(), limpiar_datos() y construir_preprocesador() de
+  src/data_prep.py. Los CSV ya transformados no sustituyen ese ajuste.
+- La revisión de disponibilidad de variables al momento de la estimación
+  llevó a excluir Sale Type y Sale Condition en la Parte 2. Mo Sold y
+  Yr Sold se conservan interpretándolos como la fecha de la valoración;
+  este supuesto se revisa en la sección 12.6.
 - La correspondencia de referencia_filas.csv permite recuperar las
   características originales para describir segmentos. Debe preservarse
   el orden de las filas al vincular archivos.
 
-## 11. Reproducción de la Parte 1
+## 11. Reproducción de las Partes 1 y 2
 
 ### 11.1. Preparación del entorno
 
@@ -425,7 +433,7 @@ Instalar las dependencias fijadas en el repositorio:
 python -m pip install -r requirements.txt
 ```
 
-### 11.2. Ejecución
+### 11.2. Ejecución de la Parte 1
 
 1. Verificar la presencia de data/raw/Ames_Iowa_Housing_Dataset.csv.
 2. Abrir el proyecto en VS Code.
@@ -442,14 +450,169 @@ Las importaciones de src requieren que la raíz del proyecto esté
 incluida en la ruta de importación. El notebook configura esta ruta
 automáticamente cuando se abre desde la raíz o desde notebooks/.
 
-### 11.3. Evidencia de ejecución y alcance de la verificación
+### 11.3. Evidencia de ejecución de la Parte 1 y alcance de la verificación
 
 Se verificó localmente la ejecución completa del notebook revisado y la
 carga de los archivos generados. Esta comprobación no equivale todavía
 a la prueba integral del proyecto en un entorno limpio, prevista para
 la entrega final después de completar las Partes 2 y 3.
 
-## 12. Entrega y trabajo pendiente
+### 11.4. Reproducción de la Parte 2
+
+Con el entorno de la sección 11.1 activo y desde la raíz del proyecto:
+
+1. Ejecutar antes el notebook 01, que genera `data/processed/` y `models/preprocesador.joblib`.
+2. Abrir `notebooks/02_modelos_supervisados.ipynb`, seleccionar el kernel del entorno `.venv`,
+   reiniciar el kernel y ejecutar todas las celdas en orden. La búsqueda de hiperparámetros del
+   boosting (36 combinaciones con 5 particiones) puede tardar varios minutos.
+3. El notebook genera `models/best_model.joblib`, `models/results_supervised.csv` e
+   `images/modelos_*.png`, y comprueba que el modelo recargado desde disco entrega las mismas predicciones.
+4. Para predecir con datos nuevos, usar un CSV con las columnas del archivo original:
+
+```bash
+python -m src.predict ruta_datos_crudos.csv salida.csv
+```
+
+El modelo guardado recibe datos crudos: no requiere preparar los datos antes de predecir. Se ignoran
+`SalePrice`, `Order` y `PID` si están presentes. El archivo de salida es solo un resultado de ejemplo
+y no forma parte de los entregables.
+
+## 12. Modelado supervisado (Parte 2)
+
+Los resultados provienen de `notebooks/02_modelos_supervisados.ipynb`, con funciones en `src/train.py`.
+Las cifras de dinero están en USD.
+
+### 12.1. Modelos y configuración
+
+Se compararon dos modelos de regresión de familias distintas, con el mismo split (80 %/20 %,
+`random_state=42`), validación cruzada de 5 particiones y las mismas métricas:
+
+- **Ridge** (lineal regularizado, objetivo `log1p(SalePrice)`): baseline simple e interpretable.
+- **Gradient boosting** (`HistGradientBoostingRegressor`): ensamble de árboles que captura relaciones no
+  lineales e interacciones.
+
+**Preparación.** El preprocesamiento (imputación, escalado y codificación) forma parte del Pipeline y se
+ajusta dentro de cada partición de entrenamiento. Se excluyeron `Sale Type` y `Sale Condition` por conocerse
+solo al cerrar la venta. La referencia del KPI predice la mediana de `SalePrice` del entrenamiento.
+
+**Ajuste de hiperparámetros.** `GridSearchCV` con el MAE en validación cruzada como criterio, sin usar la prueba.
+
+| Modelo | Hiperparámetro | Valores probados | Valor elegido |
+|---|---|---|---|
+| Ridge | `alpha` | 0,1; 0,3; 1; 3; 10; 30; 100 | 1 |
+| Boosting | `learning_rate` | 0,03; 0,05; 0,1 | 0,03 |
+| Boosting | `max_depth` | 3; 6; sin límite | sin límite |
+| Boosting | `max_iter` | 200; 400 | 400 |
+| Boosting | `l2_regularization` | 0; 1 | 1,0 |
+
+El mejor `alpha` de Ridge coincide con el del modelo base, por eso las dos filas de Ridge tienen resultados idénticos.
+
+### 12.2. Resultados
+
+| Modelo | MAE CV (USD) | MAE prueba (USD) | RMSE prueba (USD) | R² prueba | Cobertura ±10 % prueba |
+|---|---:|---:|---:|---:|---:|
+| Referencia (mediana) | 54.123 | 63.838 | 94.323 | -0,110 | 18,6 % |
+| Ridge base | 16.064 | 14.940 | 32.246 | 0,870 | 75,1 % |
+| Ridge ajustado | 16.064 | 14.940 | 32.246 | 0,870 | 75,1 % |
+| Boosting base | 14.917 | 15.624 | 27.027 | 0,909 | 74,2 % |
+| Boosting ajustado | 14.635 | 15.350 | 27.285 | 0,907 | 74,7 % |
+
+**Modelo seleccionado:** Boosting ajustado, por su menor MAE en validación cruzada (14.635 USD). En prueba
+obtuvo un MAE de 15.350 USD, una mejora de 76,0 % respecto de la referencia de la mediana (meta ≥ 15 %: cumple)
+y una cobertura ±10 % de 74,7 % (meta ≥ 70 %: cumple). Las metas no se modificaron a partir de estos resultados.
+
+### 12.3. Lectura de la comparación
+
+- **Selección y prueba.** El modelo se seleccionó por su MAE en validación cruzada, antes de evaluar la prueba.
+  En prueba, Ridge obtuvo un MAE ligeramente menor (14.940 frente a 15.350 USD) y una cobertura similar
+  (75,1 % frente a 74,7 %). El boosting obtuvo menor RMSE (27.285 frente a 32.246 USD) y mayor R²
+  (0,907 frente a 0,870), es decir, menos errores grandes. Las diferencias de MAE y cobertura entre ambos son pequeñas.
+- **Mejora del MAE.** El 76,0 % se mide frente a una referencia muy simple (la mediana); frente a Ridge,
+  el boosting no reduce el MAE en prueba.
+- **Margen de la cobertura.** El 74,7 % observado en 586 viviendas tiene una incertidumbre aproximada de
+  ±3,5 puntos porcentuales, de modo que la meta del 70 % se cumple con un margen acotado.
+- **Alcance.** Las métricas describen el desempeño sobre las 586 viviendas de prueba del dataset Ames; no
+  demuestran beneficios operacionales ni validez en otros mercados.
+
+### 12.4. Importancia de variables
+
+La importancia por permutación (sobre las variables originales, con el modelo seleccionado) y los coeficientes
+del Ridge se muestran en `images/modelos_importancia.png`. Expresan asociaciones predictivas, no efectos causales.
+
+### 12.5. Análisis de errores del modelo seleccionado
+
+Se calcularon sobre el conjunto de prueba con el modelo ya elegido y no se usaron para modificarlo.
+
+| Rango de precio (cuartiles del entrenamiento) | n | MAE (USD) | Error relativo mediano | Cobertura ±10 % |
+|---|---:|---:|---:|---:|
+| Q1: hasta 129.000 | 139 | 9.892 | 7,0 % | 63,3 % |
+| Q2: 129.000-160.000 | 142 | 8.741 | 4,6 % | 84,5 % |
+| Q3: 160.000-210.000 | 122 | 13.036 | 4,6 % | 81,1 % |
+| Q4: más de 210.000 | 183 | 26.165 | 6,0 % | 71,6 % |
+
+- El error absoluto en dólares aumenta con el precio, pero el error relativo es mayor en las viviendas más
+  baratas. El rango Q1 es el único que queda bajo el 70 % fijado como meta global de cobertura.
+- Por barrio, entre los 18 grupos con 10 o más viviendas de prueba, 8 quedan bajo el 70 % de cobertura: Crawfor
+  (21,4 %, n = 14), StoneBr (46,7 %, n = 15), Timber (61,5 %, n = 13), OldTown (62,5 %, n = 40), BrkSide (62,5 %, n = 24),
+  Edwards (63,6 %, n = 44), IDOTRR (65,0 %, n = 20) y NridgHt (68,9 %, n = 45). NridgHt concentra el mayor error
+  absoluto entre los barrios con más viviendas (MAE de 33.475 USD).
+- Los 8 barrios con menos de 10 viviendas de prueba (43 en total) no permiten conclusiones.
+- Con grupos de 13 a 15 viviendas, la cobertura cambia mucho con pocos casos, y al comparar 18 barrios algunos
+  aparecen bajos por azar. Estos resultados indican dónde revisar, no establecen causas.
+- Las diferencias por barrio describen el desempeño del modelo sobre propiedades, no características de sus habitantes.
+
+<details>
+<summary>Tabla completa de errores por barrio (anexo)</summary>
+
+| Barrio | n | MAE (USD) | Error relativo mediano | Cobertura ±10 % |
+|---|---:|---:|---:|---:|
+| NAmes | 76 | 9.649 | 5,4 % | 78,9 % |
+| CollgCr | 56 | 11.504 | 4,6 % | 85,7 % |
+| Somerst | 46 | 13.122 | 4,3 % | 89,1 % |
+| NridgHt | 45 | 33.475 | 6,0 % | 68,9 % |
+| Edwards | 44 | 18.719 | 5,6 % | 63,6 % |
+| OldTown | 40 | 11.807 | 6,8 % | 62,5 % |
+| Sawyer | 32 | 8.596 | 4,0 % | 87,5 % |
+| Gilbert | 27 | 9.477 | 3,9 % | 85,2 % |
+| SawyerW | 27 | 7.931 | 2,7 % | 88,9 % |
+| BrkSide | 24 | 10.645 | 7,1 % | 62,5 % |
+| NWAmes | 22 | 11.950 | 4,1 % | 90,9 % |
+| IDOTRR | 20 | 10.592 | 8,0 % | 65,0 % |
+| Mitchel | 17 | 16.658 | 4,9 % | 70,6 % |
+| StoneBr | 15 | 34.231 | 10,4 % | 46,7 % |
+| NoRidge | 14 | 29.270 | 7,5 % | 78,6 % |
+| Crawfor | 14 | 47.273 | 16,3 % | 21,4 % |
+| Timber | 13 | 25.067 | 6,2 % | 61,5 % |
+| SWISU | 11 | 6.571 | 6,4 % | 72,7 % |
+
+Barrios con menos de 10 viviendas de prueba (sin conclusiones): ClearCr, MeadowV, NPkVill, BrDale, Blmngtn, Blueste, Veenker, Greens.
+
+</details>
+
+### 12.6. Supuestos y limitaciones
+
+- **Fecha de la valoración.** `Mo Sold` y `Yr Sold` se conservan como predictores, interpretándolos como la
+  fecha de la valoración. El modelo no se entrenó con precios de otros períodos y no refleja inflación ni
+  cambios de mercado posteriores; antes de aplicarlo a otras fechas debe verificarse el rango de `Yr Sold` del dataset.
+- **Validación cruzada.** No se usó validación cruzada anidada, por lo que el MAE de validación puede ser
+  levemente optimista. La cifra de prueba no tiene ese sesgo.
+- **Grilla del boosting.** Los valores elegidos de `learning_rate`, `max_iter`, `max_depth` y
+  `l2_regularization` están en un extremo de la grilla probada. Una grilla más amplia podría reducir
+  algo el error de validación; la mejora respecto del modelo base fue pequeña (14.917 a 14.635 USD en validación cruzada).
+- **Prueba no totalmente aislada.** El EDA de la Parte 1 usó el dataset completo (ver sección 6.3).
+- **Contexto.** Los datos corresponden a una sola ciudad; las estimaciones son un apoyo a la valoración, no una tasación.
+
+### 12.7. Artefactos y figuras
+
+- `models/best_model.joblib`: Pipeline completo (preprocesamiento y modelo), recibe datos crudos.
+- `models/results_supervised.csv`: tabla comparativa de modelos.
+- `src/train.py` y `src/predict.py`.
+- Figuras: [comparación de modelos](images/modelos_comparacion.png),
+  [importancia de variables](images/modelos_importancia.png),
+  [residuos](images/modelos_residuos.png) y
+  [error por barrio](images/modelos_error_barrio.png).
+
+## 13. Entrega y trabajo pendiente
 
 ### Parte 1: implementada
 
@@ -460,52 +623,21 @@ la entrega final después de completar las Partes 2 y 3.
 - Interfaz de carga y comprobaciones de los datos preparados.
 - Resumen de resultados e instrucciones de ejecución en este documento.
 
-La documentación de fuente y licencia debe mantenerse en data/README.md.
+### Parte 2: implementada
+
+- Referencia basada en la mediana y dos modelos de regresión de familias distintas (Ridge y gradient boosting).
+- Validación cruzada de 5 particiones y ajuste de hiperparámetros sin usar el conjunto de prueba.
+- Evaluación final con MAE, RMSE, R² y cobertura ±10 %, y comprobación de las metas propuestas.
+- Importancia de variables y análisis de errores por rango de precio y por barrio.
+- Pipeline guardado en `models/best_model.joblib` y script de predicción en `src/predict.py`.
+
+La documentación de fuente y licencia debe mantenerse en `data/README.md`.
 La redistribución del CSV está sujeta a la comprobación de sus condiciones
 de uso; esta entrega no afirma una licencia que no haya sido verificada.
 
-
-##PARTE 2:
-
-## Modelado supervisado
-
-**Modelos.** Se compararon dos modelos de regresión de familias distintas, con el mismo split (80 %/20 %,
-`random_state=42`), validación cruzada de 5 particiones y las mismas métricas:
-
-- **Ridge** (lineal regularizado, objetivo `log1p(SalePrice)`): baseline simple e interpretable.
-- **Gradient boosting** (`HistGradientBoostingRegressor`): ensamble de árboles que captura relaciones no lineales e interacciones.
-
-**Preparación.** El preprocesamiento (imputación, escalado y codificación) forma parte del Pipeline y se ajusta
-dentro de cada partición de entrenamiento. Se excluyeron `Sale Type` y `Sale Condition` por conocerse solo al cerrar la venta.
-
-**Configuración.** Ajuste con `GridSearchCV` (criterio: MAE en validación cruzada, sin usar la prueba).
-Ridge ajustado: `{"modelo__regressor__alpha": 1}`.
-Boosting ajustado: `{"modelo__l2_regularization": 1.0, "modelo__learning_rate": 0.03, "modelo__max_depth": null, "modelo__max_iter": 400}`.
-
-**Resultados.**
-
-| Modelo | MAE CV (USD) | MAE prueba (USD) | RMSE prueba (USD) | R² prueba | Cobertura ±10 % prueba |
-|---|---|---|---|---|---|
-| Referencia (mediana) | 54,123 | 63,838 | 94,323 | -0.110 | 18.6% |
-| Ridge base | 16,064 | 14,940 | 32,246 | 0.870 | 75.1% |
-| Ridge ajustado | 16,064 | 14,940 | 32,246 | 0.870 | 75.1% |
-| Boosting base | 14,917 | 15,624 | 27,027 | 0.909 | 74.2% |
-| Boosting ajustado | 14,635 | 15,350 | 27,285 | 0.907 | 74.7% |
-
-**Modelo seleccionado:** Boosting ajustado (menor MAE en validación cruzada: 14,635 USD).
-En prueba obtuvo un MAE de 15,350 USD, una mejora de 76.0% respecto de la referencia
-de la mediana (meta >= 15%: cumple) y una cobertura ±10 % de 74.7%
-(meta >= 70%: cumple). Las metas no se modificaron a partir de estos resultados.
-
-**Interpretación inicial.** Las métricas describen el desempeño sobre las 586 viviendas de prueba del dataset Ames;
-no demuestran beneficios operacionales ni validez en otros mercados. Los errores se revisaron por barrio y rango de precio
-(`images/modelos_error_barrio.png`); los grupos con pocas viviendas no permiten conclusiones firmes. La importancia de variables
-expresa asociaciones predictivas, no efectos causales. Las recomendaciones corresponden a la Parte 3.
-
-**Artefactos.** `models/best_model.joblib` (Pipeline completo, recibe datos crudos), `models/results_supervised.csv`,
-`src/train.py`, `src/predict.py` e imágenes `images/modelos_*.png`.
-
-
 ### Parte 3: pendientes
 
-
+- Aplicar una técnica de clustering y justificar la selección de variables y parámetros.
+- Caracterizar los segmentos identificados con características observables de las viviendas.
+- Formular al menos tres recomendaciones sustentadas en los resultados e indicar sus limitaciones.
+- Completar la revisión ética final, incluidas las diferencias de desempeño entre grupos y las restricciones de uso.
