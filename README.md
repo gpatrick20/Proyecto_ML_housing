@@ -2,16 +2,17 @@
 
 ## Estado actual del proyecto
 
-Las Partes 1 y 2 están implementadas. La Parte 1 incluye la comprensión de
+Las tres partes están implementadas. La Parte 1 incluye la comprensión de
 datos, el diagnóstico de calidad, el análisis exploratorio y la preparación
 reproducible. La Parte 2 incluye el entrenamiento y la comparación de dos
 modelos de regresión, su evaluación y la persistencia del modelo seleccionado.
+La Parte 3 incluye la segmentación no supervisada de las viviendas, su
+cruce con el desempeño del modelo, las recomendaciones de negocio y la
+revisión ética final.
 
-El clustering y las recomendaciones finales corresponden a la Parte 3. Los
-objetivos y metas de esa etapa son compromisos de trabajo, no resultados
-obtenidos.
-
-Los resultados de la Parte 2 se resumen en la sección 12.
+Resumen de resultados: modelado supervisado en la sección 12, segmentación
+en la sección 13, interpretación y recomendaciones en la sección 14 y
+limitaciones y revisión ética final en la sección 15.
 
 ## 1. Problema de negocio
 
@@ -124,20 +125,19 @@ Estos efectos requieren una evaluación operacional adicional.
 El proyecto se organiza mediante las seis fases de CRISP-DM.
 Cada fase tendrá actividades y evidencias asociadas dentro del repositorio.
 
-La siguiente tabla describe la implementación prevista. Las evidencias
-se completarán y actualizarán conforme avance el proyecto; su inclusión
-en esta tabla no significa que las actividades ya estén terminadas.
+La siguiente tabla indica dónde está cubierta cada fase dentro del
+repositorio.
 
 ### 6.1. Aplicación de las fases
 
-| Fase | Aplicación en el proyecto | Evidencia prevista |
+| Fase | Aplicación en el proyecto | Evidencia |
 |---|---|---|
 | 1. Comprensión del negocio | Definir el escenario de la inmobiliaria, la decisión que se busca apoyar, los objetivos, los KPIs y las limitaciones del uso de predicciones. | README.md: problema, objetivos, indicadores de éxito y alcance. |
 | 2. Comprensión de los datos | Documentar la fuente y el significado de las variables. Revisar dimensiones, tipos, valores ausentes, duplicados, distribuciones y relaciones con SalePrice. | data/README.md y notebooks/01_comprension_eda_preparacion.ipynb: diagnóstico de calidad y EDA. |
 | 3. Preparación de los datos | Definir las variables utilizables, separar entrenamiento y prueba y aplicar las transformaciones justificadas. Generar los archivos de datos preparados. | src/data_prep.py, src/utils.py, notebook 01 y data/processed/. |
-| 4. Modelado | La Parte 2 implementa y compara dos modelos de regresión. La aplicación de una técnica no supervisada para identificar segmentos de viviendas queda para la Parte 3. | Notebook de modelado supervisado, `src/train.py`, `models/` y, para la Parte 3, `notebooks/03_no_supervisado_y_conclusiones.ipynb`. |
-| 5. Evaluación | La Parte 2 compara los modelos mediante MAE, RMSE, R² y cobertura ±10 %, comprueba las metas y analiza errores y limitaciones. La evaluación de segmentos queda para la Parte 3. | Resultados supervisados, `models/results_supervised.csv`, análisis de errores y conclusiones del README.md; evaluación de segmentos en la Parte 3. |
-| 6. Despliegue y comunicación | Entregar una solución académica reproducible, documentar su ejecución y comunicar resultados, recomendaciones y restricciones de uso. | README.md con instrucciones de reproducción, scripts, notebooks, modelos guardados y presentacion/. |
+| 4. Modelado | La Parte 2 implementa y compara dos modelos de regresión. La Parte 3 aplica PCA y clustering (K-Means, con Ward como contraste) para identificar segmentos de viviendas. | Notebook de modelado supervisado, `src/train.py`, `models/`, `notebooks/03_no_supervisado_y_conclusiones.ipynb` y `src/clustering.py`. |
+| 5. Evaluación | La Parte 2 compara los modelos mediante MAE, RMSE, R² y cobertura ±10 %, comprueba las metas y analiza errores y limitaciones. La Parte 3 evalúa los segmentos (estabilidad, cohesión) y el desempeño del modelo en cada uno. | Resultados supervisados, `models/results_supervised.csv`, `models/results_segments.csv`, análisis de errores y secciones 12 a 14 del README.md. |
+| 6. Despliegue y comunicación | Entregar una solución académica reproducible, documentar su ejecución y comunicar resultados, recomendaciones y restricciones de uso. | README.md con instrucciones de reproducción (sección 11), recomendaciones (sección 14), scripts, notebooks, modelos guardados y presentacion/. |
 
 En este proyecto, la fase de despliegue se limitará a la entrega
 reproducible y la comunicación de resultados. No se contempla publicar
@@ -155,6 +155,7 @@ sus resultados y las justificaciones correspondientes.
   entregar los conjuntos de entrenamiento y prueba.
 - src/train.py: funciones de entrenamiento, validación cruzada, métricas, ajuste de hiperparámetros, explicabilidad y análisis de errores de la Parte 2.
 - src/predict.py: carga `models/best_model.joblib` y genera predicciones a partir de datos crudos.
+- src/clustering.py: carga de datos para el clustering, evaluación de k, nombre y perfil de segmentos y error del modelo por segmento (Parte 3).
 - notebooks/: diagnóstico, análisis, explicación de decisiones,
   resultados y conclusiones.
 
@@ -224,8 +225,8 @@ de redistribución. No se asumirá que un archivo puede redistribuirse
 
 ### 7.3. Revisión al finalizar el proyecto
 
-La revisión se actualiza con los resultados de la Parte 2 y se completará
-al finalizar la Parte 3. En la prueba se observaron diferencias de cobertura
+La revisión se actualizó con los resultados de la Parte 2 y se completó
+con los de la Parte 3 (sección 15.2). En la prueba se observaron diferencias de cobertura
 entre rangos de precio y barrios; estos resultados sirven para identificar
 grupos que requieren revisión, pero no demuestran por sí solos sesgo ni sus
 causas. Se documentarán:
@@ -477,6 +478,21 @@ El modelo guardado recibe datos crudos: no requiere preparar los datos antes de 
 `SalePrice`, `Order` y `PID` si están presentes. El archivo de salida es solo un resultado de ejemplo
 y no forma parte de los entregables.
 
+### 11.5. Reproducción de la Parte 3
+
+Con el entorno de la sección 11.1 activo y desde la raíz del proyecto:
+
+1. Haber ejecutado antes los notebooks 01 y 02 (el 03 lee `data/processed/features_full.csv`,
+   `data/processed/referencia_filas.csv`, `models/best_model.joblib` y `models/results_supervised.csv`).
+2. Abrir `notebooks/03_no_supervisado_y_conclusiones.ipynb`, seleccionar el kernel de `.venv`, reiniciar el
+   kernel y ejecutar todas las celdas. Tarda menos de dos minutos.
+3. El notebook genera `data/processed/clusters.csv`, `models/results_segments.csv` e
+   `images/clustering_*.png` e `images/segmentos_*.png`.
+4. La última celda comprueba los tamaños de los segmentos. Si al ejecutar con otra versión de
+   scikit-learn los tamaños cambian, la celda lo avisa y las cifras de las secciones 13 y 14 deben revisarse.
+
+**Orden de ejecución completo:** notebook 01 → notebook 02 → notebook 03.
+
 ## 12. Modelado supervisado (Parte 2)
 
 Los resultados provienen de `notebooks/02_modelos_supervisados.ipynb`, con funciones en `src/train.py`.
@@ -612,32 +628,157 @@ Barrios con menos de 10 viviendas de prueba (sin conclusiones): ClearCr, MeadowV
   [residuos](images/modelos_residuos.png) y
   [error por barrio](images/modelos_error_barrio.png).
 
-## 13. Entrega y trabajo pendiente
+## 13. Aprendizaje no supervisado: segmentación de viviendas (Parte 3)
 
-### Parte 1: implementada
+Los resultados provienen de `notebooks/03_no_supervisado_y_conclusiones.ipynb`, con funciones en
+`src/clustering.py`. Los precios están en USD y las superficies en pies cuadrados.
 
-- Definición del problema, objetivos y KPIs.
-- Metodología CRISP-DM y evaluación ética inicial.
-- Diagnóstico de calidad y cinco hallazgos exploratorios.
-- Preparación reproducible, exportación y persistencia del preprocesador.
-- Interfaz de carga y comprobaciones de los datos preparados.
-- Resumen de resultados e instrucciones de ejecución en este documento.
+### 13.1. Objetivo y datos de entrada
 
-### Parte 2: implementada
+Identificar grupos de viviendas con características parecidas, para interpretar las diferencias entre
+propiedades y ver en qué grupos funciona mejor o peor el modelo supervisado.
 
-- Referencia basada en la mediana y dos modelos de regresión de familias distintas (Ridge y gradient boosting).
-- Validación cruzada de 5 particiones y ajuste de hiperparámetros sin usar el conjunto de prueba.
-- Evaluación final con MAE, RMSE, R² y cobertura ±10 %, y comprobación de las metas propuestas.
-- Importancia de variables y análisis de errores por rango de precio y por barrio.
-- Pipeline guardado en `models/best_model.joblib` y script de predicción en `src/predict.py`.
+- Entrada: `data/processed/features_full.csv` (2.930 viviendas), que no contiene el precio. El precio se usa
+  solo después de formar los grupos, para describirlos.
+- Se excluyen las 16 columnas derivadas de `Sale Type` y `Sale Condition` (quedan 323). Describen cómo se
+  cerró la venta y no la vivienda; es el mismo criterio de la Parte 2.
 
-La documentación de fuente y licencia debe mantenerse en `data/README.md`.
-La redistribución del CSV está sujeta a la comprobación de sus condiciones
-de uso; esta entrega no afirma una licencia que no haya sido verificada.
+### 13.2. Método
 
-### Parte 3: pendientes
+| Paso | Decisión | Justificación |
+|---|---|---|
+| Reducción | PCA con 31 componentes (80,1 % de la varianza) | Las 323 columnas son casi todas one-hot estandarizadas; en tantas dimensiones las distancias pierden contraste. |
+| Algoritmo | K-Means (`n_init=20`, `random_state=42`) | Estándar para segmentar, escala bien y cada grupo se resume con una vivienda típica. |
+| Número de grupos | k = 5 | Evaluado de 2 a 10 con inercia, silhouette, Davies-Bouldin y estabilidad bootstrap (ver abajo). |
+| Contraste | Clustering jerárquico de Ward, mismo k | Comprobar que los grupos no dependen del algoritmo. |
 
-- Aplicar una técnica de clustering y justificar la selección de variables y parámetros.
-- Caracterizar los segmentos identificados con características observables de las viviendas.
-- Formular al menos tres recomendaciones sustentadas en los resultados e indicar sus limitaciones.
-- Completar la revisión ética final, incluidas las diferencias de desempeño entre grupos y las restricciones de uso.
+Selección de k (figura: [images/clustering_k.png](images/clustering_k.png)):
+
+| k | Silhouette | Davies-Bouldin | Estabilidad (ARI) | Grupo más pequeño |
+|---:|---:|---:|---:|---:|
+| 2 | 0,169 | 2,12 | 0,989 | 1.295 |
+| 3 | 0,151 | 2,24 | 0,920 | 678 |
+| 4 | 0,113 | 2,64 | 0,844 | 572 |
+| **5** | **0,118** | **2,41** | **0,867** | **118** |
+| 6 | 0,110 | 2,28 | 0,781 | 119 |
+| 7 | 0,111 | 2,09 | 0,789 | 25 |
+
+Se eligió k = 5 porque es un máximo local de silhouette entre k = 3 y k = 10, mejora el Davies-Bouldin
+respecto de k = 4, es más estable que k = 4 y k ≥ 6, y separa un grupo de dúplex que k = 3 y k = 4 ocultan.
+El costo es que k = 2 y k = 3 tienen mejor silhouette; se aceptó a cambio de segmentos más útiles para el negocio.
+**Todos los silhouette son bajos:** los datos no forman grupos naturales bien separados.
+
+Contraste con Ward: ARI entre ambos métodos de 0,595 (coincidencia moderada); ambos aíslan un grupo de ~117 a 118
+dúplex. K-Means tiene mejor cohesión (silhouette 0,118 frente a 0,091) y permite asignar viviendas nuevas con
+`predict`, por lo que es el enfoque final. DBSCAN no se probó; se descartó por diseño, sin resultados que lo respalden.
+
+### 13.3. Segmentos
+
+Los nombres usan solo características observables de la vivienda (no el barrio). Archivo de asignación:
+`data/processed/clusters.csv` (`indice_original`, `cluster`, `segmento`).
+
+| Segmento | n (%) | Precio mediano | Características principales |
+|---|---|---:|---|
+| S1 Dúplex y multifamiliares | 118 (4 %) | 129.250 | 94 % dúplex o 2fmCon; superficie 1.731; 2 baños |
+| S2 Antiguas y compactas | 692 (24 %) | 117.800 | Año 1933; superficie 1.247; 1 auto; 50 % en zona RM; 65 % con precio ≤ 129.000 |
+| S3 Un piso de tamaño medio, años 60 | 866 (30 %) | 143.350 | 78 % de un piso; año 1965; superficie 1.127; calidad 5 |
+| S4 Un piso reciente, mayor calidad | 580 (20 %) | 230.174 | 95 % de un piso; año 2005; calidad 7; sótano 1.525; ninguna vivienda ≤ 129.000 |
+| S5 Dos pisos amplias, recientes | 674 (23 %) | 212.000 | 90 % de dos pisos; año 1999; superficie 1.888; calidad 7 |
+
+Figuras: [mapa PCA](images/segmentos_pca.png), [precio por segmento](images/segmentos_precio.png),
+[perfil estandarizado](images/segmentos_perfil.png). El mapa PCA muestra solo el 24,9 % de la varianza.
+
+Patrones principales: el precio se ordena por dos ejes combinados (antigüedad y calidad, y tamaño y tipo de
+edificación); S2 es el grupo más ligado a los precios bajos; S4 y S5 tienen más dispersión interna de precios
+(desviación/media de 0,32 y 0,34, frente a 0,20 en S3). Son asociaciones, no efectos causales.
+
+## 14. Interpretación integrada y recomendaciones de negocio
+
+### 14.1. Desempeño del modelo ganador por segmento
+
+Modelo: Boosting ajustado de la Parte 2, evaluado solo sobre las 586 viviendas de prueba. El total reproduce
+las cifras de la sección 12 (MAE 15.350 USD; cobertura 74,7 %). Detalle en `models/results_segments.csv`
+y [images/segmentos_error_modelo.png](images/segmentos_error_modelo.png).
+
+| Segmento | n prueba | MAE (USD) | Cobertura ±10 % | IC 95 % de la cobertura | Mejora del MAE vs. mediana |
+|---|---:|---:|---:|---|---:|
+| S1 Dúplex y multifamiliares | 26 | 10.013 | 73,1 % | 53,9 - 86,3 % | 70,2 % |
+| S2 Antiguas y compactas | 135 | 10.017 | 69,6 % | 61,4 - 76,8 % | 78,2 % |
+| S3 Un piso de tamaño medio | 151 | 9.297 | 76,8 % | 69,5 - 82,8 % | 61,4 % |
+| S4 Un piso reciente, mayor calidad | 132 | 26.177 | 71,2 % | 63,0 - 78,2 % | 76,5 % |
+| S5 Dos pisos amplias, recientes | 142 | 17.768 | 81,0 % | 73,7 - 86,6 % | 79,0 % |
+| **Total** | **586** | **15.350** | **74,7 %** | **71,1 - 78,1 %** | **76,0 %** |
+
+Lectura frente a los KPIs (sección 4):
+
+- **Cobertura (meta ≥ 70 %).** Cumple en el total. Por segmento, solo S5 tiene el intervalo completo sobre
+  70 %; S2 queda 0,4 puntos bajo la meta en la cifra puntual, pero es estadísticamente indistinguible de 70 %;
+  S1 no es concluyente por tener 26 viviendas.
+- **Mejora del MAE (meta ≥ 15 %).** Se cumple con holgura en todos los segmentos (61,4 % a 79,0 %).
+- **Error en dólares.** Crece con el valor de la vivienda: en S4 el MAE es 26.177 USD, 1,7 veces el global.
+  En términos relativos las diferencias son menores (error relativo mediano entre 4,8 % y 6,1 %).
+
+### 14.2. Recomendaciones
+
+Cada una se apoya en un resultado de la sección 14.1. Ninguna afirma ahorros, tiempos de venta ni beneficios
+operacionales, porque no se midieron.
+
+1. **Usar el modelo como primera estimación en S3 y S5, con revisión de una muestra.** Mejor cobertura
+   puntual (76,8 % y 81,0 %) y 53 % de las viviendas. Solo en S5 el intervalo queda sobre la meta.
+2. **Exigir revisión de un tasador en S2.** Cobertura de 69,6 % (la más baja) y 65 % de sus viviendas en el
+   cuartil inferior de precios, donde la Parte 2 midió 63,3 %. Revisar una muestra hasta confirmar si la
+   cobertura real supera 70 %.
+3. **En S4, comunicar la estimación como rango en USD** (aprox. ± 26.000 USD, su MAE) y no como cifra única.
+4. **No usar el modelo en dúplex y multifamiliares (S1) hasta reunir más datos.** Solo 26 viviendas de
+   prueba (IC 53,9 - 86,3 %). Derivarlos a valoración manual.
+5. **Informar los KPIs por segmento y no solo el total.** El 74,7 % global oculta un rango de 69,6 % a 81,0 %.
+
+## 15. Limitaciones, revisión ética final y trabajo futuro
+
+### 15.1. Limitaciones
+
+- **Estructura débil.** Silhouette de 0,118 con k = 5; los segmentos son una partición útil, no grupos
+  naturales. Con otra semilla, método o k los bordes cambian (ARI K-Means y Ward de 0,595; estabilidad
+  bootstrap de 0,867).
+- **Muestras pequeñas por segmento** (26 a 151 viviendas de prueba): los intervalos son amplios y las
+  diferencias entre segmentos no son concluyentes.
+- **El clustering usó las 2.930 viviendas, incluidas las de prueba**, sin el precio. No hay fuga del objetivo,
+  pero la estructura de los grupos incorpora las características de las viviendas de prueba.
+- **Sin validación operacional.** Las recomendaciones derivan de errores de predicción, no de un piloto.
+- **Alcance.** Datos de una sola ciudad (Ames, Iowa) con ventas de 2006 a 2010. El modelo no refleja la
+  inflación ni el mercado actual y no debe aplicarse a precios actuales ni a otras ciudades sin revalidación.
+- **Asociación, no causalidad.**
+
+### 15.2. Revisión ética final
+
+- **Diferencias de desempeño entre grupos.** La cobertura va de 69,6 % (S2) a 81,0 % (S5). S2 reúne las
+  viviendas más baratas, que reciben las estimaciones menos fiables; usar el modelo sin revisión podría
+  perjudicar de forma sistemática a quien compre o venda ese tipo de propiedad. La recomendación 2 lo mitiga.
+- **Segmentación estigmatizante.** Los nombres usan solo características de la edificación; no hay
+  segmentos rotulados por barrio ni se atribuyen rasgos a los habitantes. `Neighborhood` influyó en la formación
+  de los grupos, pero los resultados describen propiedades.
+- **Uso responsable.** Los segmentos y el modelo no deben usarse para decidir sobre personas (créditos,
+  seguros, acceso a vivienda).
+- **Lo que no se hizo.** No hay auditoría formal de equidad; la ausencia de diferencias significativas no
+  demuestra ausencia de sesgo.
+
+### 15.3. Trabajo futuro
+
+1. Probar si agregar el segmento como variable mejora el modelo (validación cruzada sobre entrenamiento).
+2. Más datos o un modelo específico para dúplex (S1).
+3. Validación cruzada anidada y grilla más amplia del boosting (sección 12.6).
+4. Piloto con tasadores para medir tiempo y calidad reales.
+
+## 16. Estado de las entregas
+
+| Entregable | Estado |
+|---|---|
+| Informe técnico en Markdown (este README) | Completo |
+| Notebooks 01, 02 y 03 | Completos; ejecutados con Restart & Run All |
+| Datos y archivos para re-ejecutar | En `data/` y `models/` |
+| Estructura profesional del proyecto | `data/`, `notebooks/`, `src/`, `models/`, `images/`, `presentacion/` |
+| Presentación de defensa (≈ 9:30 min, 3 integrantes) | `presentacion/presentacion_housing.pptx` |
+| Guía de preguntas cruzadas | `presentacion/preguntas_frecuentes.md` |
+
+La documentación de fuente y licencia está en `data/README.md`. La redistribución del CSV está sujeta a la
+comprobación de sus condiciones de uso; esta entrega no afirma una licencia que no haya sido verificada.
