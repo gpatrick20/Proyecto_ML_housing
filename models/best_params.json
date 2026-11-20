@@ -1,0 +1,40 @@
+{
+  "ridge_robusto": {
+    "alpha": 30.0,
+    "recorte_z": 3.0,
+    "log_objetivo": true,
+    "MAE_CV_media": 14084.00684269003,
+    "como_construirlo": "construir_ridge_robusto(X, alpha=..., recorte_z=...)"
+  },
+  "boosting_optimizado": {
+    "l2_regularization": 0.0,
+    "learning_rate": 0.03203913722293047,
+    "loss": "absolute_error",
+    "max_depth": 8,
+    "max_iter": 500,
+    "max_leaf_nodes": 31,
+    "min_samples_leaf": 5,
+    "early_stopping": true,
+    "validation_fraction": 0.1,
+    "n_iter_no_change": 30,
+    "arboles_usados_modelo_final": 500,
+    "MAE_CV_media": 14707.904207518595,
+    "como_construirlo": "construir_pipeline(construir_boosting_es(**parametros), X)"
+  },
+  "boosting_grilla_original": {
+    "learning_rate": 0.03,
+    "max_depth": null,
+    "max_iter": 400,
+    "l2_regularization": 1.0,
+    "MAE_CV_media": 14635.746567963835,
+    "como_construirlo": "construir_pipeline(construir_boosting(**parametros), X)  # sin parada temprana"
+  },
+  "validacion": {
+    "n_splits": 5,
+    "shuffle": true,
+    "random_state": 42,
+    "scoring": "neg_mean_absolute_error",
+    "n_iter_busqueda_boosting": 30
+  },
+  "nota": "Hiperparámetros elegidos solo con validación cruzada sobre entrenamiento. Pensados para usarse como componentes de ensambles."
+}
