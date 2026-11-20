@@ -7,7 +7,8 @@ from src.utils import load_raw, DATA_PROCESSED, MODELS
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, StandardScaler
+import numpy as np
 
 
 def cargar_y_separar():
@@ -60,8 +61,20 @@ def limpiar_datos(X):
     return X_limpio
 
 
-def construir_preprocesador(X):
-    """Construye el preprocesador sin ajustarlo."""
+def recortar_z(z):
+    """Argumentos de np.clip para recortar valores estandarizados a [-z, z]."""
+    return {"a_min": -float(z), "a_max": float(z)}
+
+
+def construir_preprocesador(X, recorte_z=None):
+    """Construye el preprocesador sin ajustarlo.
+
+    recorte_z=None (por defecto) reproduce el preprocesador original de la Parte 1.
+    Con un número, agrega un paso "recorte" que limita las variables numéricas
+    estandarizadas al intervalo [-recorte_z, recorte_z]. No elimina filas ni aprende
+    parámetros: solo evita que un valor extremo (p. ej. una vivienda de 5.642 pies²)
+    produzca extrapolaciones absurdas en modelos lineales.
+    """
     columnas_numericas = X.select_dtypes(
         include="number"
     ).columns.tolist()
@@ -70,7 +83,7 @@ def construir_preprocesador(X):
         exclude="number"
     ).columns.tolist()
 
-    pipeline_numerico = Pipeline([
+    pasos_numericos = [
         (
             "imputacion",
             SimpleImputer(
@@ -82,7 +95,19 @@ def construir_preprocesador(X):
             "escalado",
             StandardScaler()
         )
-    ])
+    ]
+
+    if recorte_z is not None:
+        pasos_numericos.append((
+            "recorte",
+            FunctionTransformer(
+                np.clip,
+                kw_args=recortar_z(recorte_z),
+                feature_names_out="one-to-one"
+            )
+        ))
+
+    pipeline_numerico = Pipeline(pasos_numericos)
 
     pipeline_categorico = Pipeline([
         (
