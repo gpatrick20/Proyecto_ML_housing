@@ -1,25 +1,46 @@
-"""Funciones de entrenamiento y evaluación supervisada (Parte 2)."""
+"""Funciones de entrenamiento y evaluación supervisada (Parte 2 y ensambles)."""
 
 import joblib
 import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
+from scipy.stats import loguniform
+from sklearn.base import clone
 from sklearn.compose import TransformedTargetRegressor
 from sklearn.dummy import DummyRegressor
-from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.ensemble import (
+    ExtraTreesRegressor,
+    HistGradientBoostingRegressor,
+    RandomForestRegressor,
+    StackingRegressor,
+    VotingRegressor,
+)
 from sklearn.inspection import permutation_importance
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score
-from sklearn.base import clone
-from scipy.stats import loguniform
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.model_selection import KFold, cross_val_predict, learning_curve
+from sklearn.model_selection import (
+    GridSearchCV,
+    KFold,
+    RandomizedSearchCV,
+    cross_val_predict,
+    learning_curve,
+)
 from sklearn.pipeline import Pipeline
 
-from src.data_prep import cargar_y_separar, limpiar_datos
-from src.data_prep import construir_preprocesador, recortar_z
+from src.data_prep import (
+    cargar_y_separar,
+    limpiar_datos,
+    construir_preprocesador,
+    recortar_z,
+)
 from src.utils import MODELS
 
+
+# ---------------------------------------------------------------------------
+# Configuración global
+# ---------------------------------------------------------------------------
 
 RANDOM_STATE = 42
 TOLERANCIA = 0.10        # error relativo máximo aceptado por el KPI de cobertura
@@ -27,6 +48,10 @@ META_COBERTURA = 0.70    # README sección 4.1: al menos 70% de predicciones den
 META_MEJORA_MAE = 0.15   # README sección 4.1: al menos 15% menos MAE que la referencia de la mediana
 COLUMNAS_EXCLUIDAS = ["Sale Type", "Sale Condition"]  # se conocen solo al cerrar la venta
 
+
+# ---------------------------------------------------------------------------
+# Carga y preparación de datos
+# ---------------------------------------------------------------------------
 
 def preparar_entrada(X):
     """Aplica limpiar_datos y quita las variables posteriores a la estimación.
@@ -45,6 +70,10 @@ def cargar_datos_crudos():
     return preparar_entrada(X_train), preparar_entrada(X_test), y_train, y_test
 
 
+# ---------------------------------------------------------------------------
+# Métricas y validación cruzada
+# ---------------------------------------------------------------------------
+
 def calcular_metricas(y_real, y_pred):
     """MAE y RMSE en USD, R2 y cobertura (% de predicciones con error relativo <= TOLERANCIA)."""
     y_real = np.asarray(y_real, dtype=float)
@@ -61,33 +90,6 @@ def calcular_metricas(y_real, y_pred):
 def crear_cv(n_splits=5):
     """Validación cruzada de 5 particiones con semilla fija."""
     return KFold(n_splits=n_splits, shuffle=True, random_state=RANDOM_STATE)
-
-
-def construir_pipeline(regresor, X, log_objetivo=False, recorte_z=None):
-    """Pipeline completo: preprocesador (se ajusta dentro de cada partición) + regresor.
-
-    Con log_objetivo=True el modelo aprende log1p(SalePrice) y devuelve predicciones en USD.
-    Con recorte_z=<número> las variables numéricas estandarizadas se recortan a [-z, z]
-    (ver construir_preprocesador). Por defecto no hay recorte (comportamiento original).
-    """
-    if log_objetivo:
-        regresor = TransformedTargetRegressor(
-            regressor=regresor, func=np.log1p, inverse_func=np.expm1
-        )
-    return Pipeline([
-        ("prep", construir_preprocesador(X, recorte_z=recorte_z)),
-        ("modelo", regresor),
-    ])
-
-
-def construir_ridge(alpha=1.0):
-    """Modelo lineal regularizado: baseline simple e interpretable."""
-    return Ridge(alpha=alpha)
-
-
-def referencia_mediana(X, y):
-    """Referencia del KPI: predice la mediana de SalePrice del entrenamiento para todas las viviendas."""
-    return DummyRegressor(strategy="median").fit(X, y)
 
 
 def validacion_cruzada(estimador, X, y, cv=None):
@@ -112,12 +114,47 @@ def evaluar_metas(metricas, mae_referencia):
     }
 
 
+# ---------------------------------------------------------------------------
+# Pipelines y modelos base
+# ---------------------------------------------------------------------------
+
+def construir_pipeline(regresor, X, log_objetivo=False, recorte_z=None):
+    """Pipeline completo: preprocesador (se ajusta dentro de cada partición) + regresor.
+
+    Con log_objetivo=True el modelo aprende log1p(SalePrice) y devuelve predicciones en USD.
+    Con recorte_z=<número> las variables numéricas estandarizadas se recortan a [-z, z].
+    """
+    if log_objetivo:
+        regresor = TransformedTargetRegressor(
+            regressor=regresor,
+            func=np.log1p,
+            inverse_func=np.expm1,
+        )
+    return Pipeline([
+        ("prep", construir_preprocesador(X, recorte_z=recorte_z)),
+        ("modelo", regresor),
+    ])
+
+
+def construir_ridge(alpha=1.0):
+    """Modelo lineal regularizado: baseline simple e interpretable."""
+    return Ridge(alpha=alpha)
+
+
+def referencia_mediana(X, y):
+    """Referencia del KPI: predice la mediana de SalePrice del entrenamiento."""
+    return DummyRegressor(strategy="median").fit(X, y)
+
+
 def construir_boosting(**parametros):
     """Ensamble de árboles con gradient boosting (HistGradientBoostingRegressor)."""
     return HistGradientBoostingRegressor(random_state=RANDOM_STATE, **parametros)
 
 
-# Los nombres siguen la convención de Pipeline: <paso>__<parametro>.
+# ---------------------------------------------------------------------------
+# Búsqueda de hiperparámetros (Parte 2 original)
+# ---------------------------------------------------------------------------
+
 GRILLA_RIDGE = {
     "modelo__regressor__alpha": [0.1, 0.3, 1, 3, 10, 30, 100],
 }
@@ -139,6 +176,10 @@ def buscar_hiperparametros(estimador, grilla, X, y, cv=None):
     )
     return busqueda.fit(X, y)
 
+
+# ---------------------------------------------------------------------------
+# Resultados, explicabilidad y análisis de errores
+# ---------------------------------------------------------------------------
 
 def fila_resultado(nombre, familia, hiperparametros, m_cv, m_prueba,
                    mae_referencia_prueba=None, seleccionado=False):
@@ -187,7 +228,9 @@ def coeficientes_ridge(pipeline):
         "Variable": [n.split("__", 1)[-1] for n in nombres],
         "Coeficiente": coeficientes,
     })
-    return tabla.reindex(tabla["Coeficiente"].abs().sort_values(ascending=False).index).reset_index(drop=True)
+    return tabla.reindex(
+        tabla["Coeficiente"].abs().sort_values(ascending=False).index
+    ).reset_index(drop=True)
 
 
 def rangos_precio(y_train, y, cortes=(0.25, 0.5, 0.75)):
@@ -204,13 +247,18 @@ def rangos_precio(y_train, y, cortes=(0.25, 0.5, 0.75)):
 
 def error_por_grupo(resultados, columna, min_n=10):
     """Error por grupo. Requiere las columnas y_real, y_pred y la columna de agrupación."""
-    r = resultados.assign(error_abs=(resultados["y_pred"] - resultados["y_real"]).abs())
+    r = resultados.assign(
+        error_abs=(resultados["y_pred"] - resultados["y_real"]).abs()
+    )
     r["error_rel"] = r["error_abs"] / r["y_real"]
     tabla = (
         r.groupby(columna, observed=True)
-        .agg(n=("y_real", "size"), MAE=("error_abs", "mean"),
-             Error_rel_mediano=("error_rel", "median"),
-             Cobertura_10=("error_rel", lambda s: (s <= TOLERANCIA).mean()))
+        .agg(
+            n=("y_real", "size"),
+            MAE=("error_abs", "mean"),
+            Error_rel_mediano=("error_rel", "median"),
+            Cobertura_10=("error_rel", lambda s: (s <= TOLERANCIA).mean()),
+        )
         .reset_index()
     )
     tabla["Muestra_suficiente"] = tabla["n"] >= min_n
@@ -220,11 +268,18 @@ def error_por_grupo(resultados, columna, min_n=10):
 def tabla_markdown(df):
     """Convierte un DataFrame ya formateado a tabla Markdown (para pegar en el README)."""
     columnas = list(df.columns)
-    lineas = ["| " + " | ".join(columnas) + " |", "|" + "|".join(["---"] * len(columnas)) + "|"]
+    lineas = [
+        "| " + " | ".join(columnas) + " |",
+        "|" + "|".join(["---"] * len(columnas)) + "|",
+    ]
     for _, fila in df.iterrows():
         lineas.append("| " + " | ".join(str(v) for v in fila) + " |")
     return "\n".join(lineas)
 
+
+# ---------------------------------------------------------------------------
+# Persistencia
+# ---------------------------------------------------------------------------
 
 def guardar_modelo(pipeline, ruta=None):
     """Guarda el Pipeline completo (preprocesamiento + modelo). Recibe datos crudos al predecir."""
@@ -242,77 +297,114 @@ def guardar_resultados(tabla, ruta=None):
     return ruta
 
 
+def guardar_json(objeto, ruta):
+    """Guarda un diccionario como JSON legible (UTF-8)."""
+    ruta = Path(ruta)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text(
+        json.dumps(objeto, indent=2, default=str, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return ruta
+
 
 # ---------------------------------------------------------------------------
-# Persona 1: optimización ampliada de hiperparámetros y evaluación de generalización
+# Persona 1: optimización ampliada y evaluación de generalización
 # ---------------------------------------------------------------------------
 
-SIN_RECORTE = 1e6  # recorte tan amplio que equivale a no recortar (permite buscar "z" en la grilla)
+SIN_RECORTE = 1e6  # recorte tan amplio que equivale a no recortar
 ALPHAS_RIDGE = [0.1, 0.3, 1, 3, 10, 30, 100, 300]
 RECORTES_Z = [SIN_RECORTE, 5.0, 4.0, 3.0, 2.5, 2.0]
 
-# Ridge robusto: se busca alpha y el nivel de recorte z a la vez, solo con datos de entrenamiento.
 GRILLA_RIDGE_ROBUSTO = {
     "modelo__regressor__alpha": ALPHAS_RIDGE,
     "prep__numericas__recorte__kw_args": [recortar_z(z) for z in RECORTES_Z],
 }
 
-# Boosting: espacio ampliado para la búsqueda aleatoria. learning_rate se muestrea en escala logarítmica.
 ESPACIO_BOOSTING = {
     "modelo__learning_rate": loguniform(0.01, 0.2),
-    "modelo__max_iter": [500, 800, 1200],            # tope: el early stopping decide cuántas se usan
+    "modelo__max_iter": [500, 800, 1200],
     "modelo__max_depth": [3, 5, 8, None],
     "modelo__max_leaf_nodes": [15, 31, 63],
     "modelo__min_samples_leaf": [5, 10, 20, 40],
     "modelo__l2_regularization": [0.0, 1.0, 5.0, 10.0],
-    "modelo__loss": ["squared_error", "absolute_error"],  # absolute_error optimiza directamente el MAE
+    "modelo__loss": ["squared_error", "absolute_error"],
 }
 
 
 def construir_ridge_robusto(X, alpha=1.0, recorte_z=SIN_RECORTE):
     """Ridge con objetivo log1p y recorte de variables numéricas estandarizadas."""
-    return construir_pipeline(construir_ridge(alpha), X, log_objetivo=True, recorte_z=recorte_z)
+    return construir_pipeline(
+        construir_ridge(alpha),
+        X,
+        log_objetivo=True,
+        recorte_z=recorte_z,
+    )
 
 
 def construir_boosting_es(**parametros):
-    """HistGradientBoosting con parada temprana (validación interna del 10 %, paciencia de 30 iteraciones).
+    """HistGradientBoosting con parada temprana (validación interna del 10%, paciencia 30).
 
-    max_iter pasa a ser un tope y no un valor fijo; la parada temprana hace viable explorar muchas configuraciones.
+    Ignora claves extra del JSON (como 'arboles_usados_modelo_final') que no
+    son hiperparámetros del modelo, sino metadatos de la búsqueda.
     """
-    base = dict(early_stopping=True, validation_fraction=0.1, n_iter_no_change=30)
-    base.update(parametros)
+    parametros_validos = {
+        "learning_rate",
+        "max_iter",
+        "max_depth",
+        "max_leaf_nodes",
+        "min_samples_leaf",
+        "l2_regularization",
+        "loss",
+    }
+
+    parametros_filtrados = {
+        k: v for k, v in parametros.items() if k in parametros_validos
+    }
+
+    base = dict(
+        early_stopping=True,
+        validation_fraction=0.1,
+        n_iter_no_change=30,
+    )
+    base.update(parametros_filtrados)
     return HistGradientBoostingRegressor(random_state=RANDOM_STATE, **base)
 
 
 def buscar_aleatoria(estimador, espacio, X, y, n_iter=30, cv=None):
-    """RandomizedSearchCV que minimiza el MAE en validación cruzada (solo con datos de entrenamiento)."""
+    """RandomizedSearchCV que minimiza el MAE en validación cruzada."""
     cv = crear_cv() if cv is None else cv
     busqueda = RandomizedSearchCV(
-        estimador, espacio, n_iter=n_iter, cv=cv, scoring="neg_mean_absolute_error",
-        n_jobs=-1, refit=True, random_state=RANDOM_STATE, return_train_score=True,
+        estimador, espacio, n_iter=n_iter, cv=cv,
+        scoring="neg_mean_absolute_error",
+        n_jobs=-1, refit=True, random_state=RANDOM_STATE,
+        return_train_score=True,
     )
     return busqueda.fit(X, y)
 
 
 def buscar_grilla_con_train(estimador, grilla, X, y, cv=None):
-    """GridSearchCV como buscar_hiperparametros, pero guardando también el error de entrenamiento."""
+    """GridSearchCV que también guarda el error de entrenamiento."""
     cv = crear_cv() if cv is None else cv
     busqueda = GridSearchCV(
-        estimador, grilla, cv=cv, scoring="neg_mean_absolute_error",
+        estimador, grilla, cv=cv,
+        scoring="neg_mean_absolute_error",
         n_jobs=-1, refit=True, return_train_score=True,
     )
     return busqueda.fit(X, y)
 
 
 def tabla_busqueda(busqueda):
-    """Resultados de una búsqueda como tabla ordenada por MAE de validación cruzada (USD)."""
+    """Resultados de una búsqueda ordenados por MAE de validación cruzada (USD)."""
     r = pd.DataFrame(busqueda.cv_results_)
     tabla = pd.DataFrame(list(r["params"]))
     tabla.columns = [c.split("__")[-1] for c in tabla.columns]
     if "kw_args" in tabla.columns:
         tabla["recorte_z"] = tabla.pop("kw_args").map(lambda d: d["a_max"])
     if "max_depth" in tabla.columns:
-        tabla["max_depth"] = tabla["max_depth"].map(lambda v: "sin límite" if pd.isna(v) else str(int(v)))
+        tabla["max_depth"] = tabla["max_depth"].map(
+            lambda v: "sin límite" if pd.isna(v) else str(int(v))
+        )
     tabla["MAE_CV"] = -r["mean_test_score"].to_numpy()
     tabla["MAE_CV_desv"] = r["std_test_score"].to_numpy()
     tabla["MAE_entrenamiento"] = -r["mean_train_score"].to_numpy()
@@ -321,10 +413,7 @@ def tabla_busqueda(busqueda):
 
 
 def tabla_sensibilidad(tabla, parametros, bins=4):
-    """MAE medio y mínimo de la búsqueda según cada valor de cada hiperparámetro.
-
-    Los hiperparámetros continuos se agrupan en cuartiles. Sirve para ver cuánto pesa cada uno.
-    """
+    """MAE medio y mínimo de la búsqueda según cada valor de cada hiperparámetro."""
     filas = []
     for par in parametros:
         valores = tabla[par]
@@ -334,21 +423,30 @@ def tabla_sensibilidad(tabla, parametros, bins=4):
             grupos = valores.astype(str)
         agg = tabla.groupby(grupos)["MAE_CV"].agg(["size", "mean", "min"])
         for valor, f in agg.iterrows():
-            filas.append({"hiperparametro": par, "valor": valor, "n": int(f["size"]),
-                          "MAE_CV_medio": f["mean"], "MAE_CV_minimo": f["min"]})
+            filas.append({
+                "hiperparametro": par,
+                "valor": valor,
+                "n": int(f["size"]),
+                "MAE_CV_medio": f["mean"],
+                "MAE_CV_minimo": f["min"],
+            })
     return pd.DataFrame(filas)
 
 
 def metricas_por_fold(estimador, X, y, cv=None):
-    """Ajusta el estimador en cada partición y devuelve las métricas de validación y de entrenamiento por fold."""
+    """Ajusta el estimador en cada partición y devuelve métricas de validación y entrenamiento por fold."""
     cv = crear_cv() if cv is None else cv
     filas = []
     for k, (idx_entr, idx_val) in enumerate(cv.split(X), start=1):
         modelo = clone(estimador).fit(X.iloc[idx_entr], y.iloc[idx_entr])
         m_val = calcular_metricas(y.iloc[idx_val], modelo.predict(X.iloc[idx_val]))
         m_ent = calcular_metricas(y.iloc[idx_entr], modelo.predict(X.iloc[idx_entr]))
-        filas.append({"fold": k, **m_val,
-                      "MAE_entrenamiento": m_ent["MAE"], "R2_entrenamiento": m_ent["R2"]})
+        filas.append({
+            "fold": k,
+            **m_val,
+            "MAE_entrenamiento": m_ent["MAE"],
+            "R2_entrenamiento": m_ent["R2"],
+        })
     return pd.DataFrame(filas)
 
 
@@ -362,28 +460,39 @@ def resumir_folds(tabla_folds):
 
 
 def cv_anidada(estimador, espacio, X, y, n_iter=None, splits_internos=3, cv_externo=None):
-    """Validación cruzada anidada: la búsqueda de hiperparámetros se repite dentro de cada fold externo.
-
-    El fold externo de validación nunca interviene en la elección de hiperparámetros, así que su MAE no es
-    optimista. Con n_iter se usa RandomizedSearchCV; sin n_iter, GridSearchCV.
-    """
+    """Validación cruzada anidada: la búsqueda se repite dentro de cada fold externo."""
     cv_externo = crear_cv() if cv_externo is None else cv_externo
-    cv_interno = KFold(n_splits=splits_internos, shuffle=True, random_state=RANDOM_STATE)
+    cv_interno = KFold(
+        n_splits=splits_internos,
+        shuffle=True,
+        random_state=RANDOM_STATE,
+    )
     filas = []
     for k, (idx_entr, idx_val) in enumerate(cv_externo.split(X), start=1):
         if n_iter is None:
-            busqueda = GridSearchCV(estimador, espacio, cv=cv_interno,
-                                    scoring="neg_mean_absolute_error", n_jobs=-1)
+            busqueda = GridSearchCV(
+                estimador, espacio, cv=cv_interno,
+                scoring="neg_mean_absolute_error", n_jobs=-1,
+            )
         else:
-            busqueda = RandomizedSearchCV(estimador, espacio, n_iter=n_iter, cv=cv_interno,
-                                          scoring="neg_mean_absolute_error", n_jobs=-1,
-                                          random_state=RANDOM_STATE)
+            busqueda = RandomizedSearchCV(
+                estimador, espacio, n_iter=n_iter, cv=cv_interno,
+                scoring="neg_mean_absolute_error", n_jobs=-1,
+                random_state=RANDOM_STATE,
+            )
         busqueda.fit(X.iloc[idx_entr], y.iloc[idx_entr])
         m = calcular_metricas(y.iloc[idx_val], busqueda.predict(X.iloc[idx_val]))
-        filas.append({"fold_externo": k, "MAE_externo": m["MAE"], "RMSE_externo": m["RMSE"],
-                      "R2_externo": m["R2"], "Cobertura_10_externo": m["Cobertura_10"],
-                      "MAE_interno_optimista": -busqueda.best_score_,
-                      "mejores_hiperparametros": json.dumps(busqueda.best_params_, default=str, ensure_ascii=False)})
+        filas.append({
+            "fold_externo": k,
+            "MAE_externo": m["MAE"],
+            "RMSE_externo": m["RMSE"],
+            "R2_externo": m["R2"],
+            "Cobertura_10_externo": m["Cobertura_10"],
+            "MAE_interno_optimista": -busqueda.best_score_,
+            "mejores_hiperparametros": json.dumps(
+                busqueda.best_params_, default=str, ensure_ascii=False
+            ),
+        })
     return pd.DataFrame(filas)
 
 
@@ -392,19 +501,149 @@ def curva_aprendizaje(estimador, X, y, cv=None, tamanos=(0.2, 0.4, 0.6, 0.8, 1.0
     cv = crear_cv() if cv is None else cv
     n, entr, val = learning_curve(
         estimador, X, y, cv=cv, train_sizes=list(tamanos),
-        scoring="neg_mean_absolute_error", n_jobs=-1, random_state=RANDOM_STATE, shuffle=True,
+        scoring="neg_mean_absolute_error", n_jobs=-1,
+        random_state=RANDOM_STATE, shuffle=True,
     )
     return pd.DataFrame({
         "n_entrenamiento": n,
-        "MAE_entrenamiento": -entr.mean(axis=1), "MAE_entrenamiento_desv": entr.std(axis=1, ddof=1),
-        "MAE_validacion": -val.mean(axis=1), "MAE_validacion_desv": val.std(axis=1, ddof=1),
+        "MAE_entrenamiento": -entr.mean(axis=1),
+        "MAE_entrenamiento_desv": entr.std(axis=1, ddof=1),
+        "MAE_validacion": -val.mean(axis=1),
+        "MAE_validacion_desv": val.std(axis=1, ddof=1),
     })
 
 
-def guardar_json(objeto, ruta):
-    """Guarda un diccionario como JSON legible (UTF-8)."""
-    from pathlib import Path
+# ---------------------------------------------------------------------------
+# Persona 2: técnicas de ensamble (IE10)
+# ---------------------------------------------------------------------------
+
+RUTA_BEST_PARAMS = MODELS / "best_params.json"
+
+PARAMETROS_POR_DEFECTO = {
+    "ridge_robusto": {
+        "alpha": 30.0,
+        "recorte_z": 3.0,
+    },
+    "boosting_optimizado": {
+        "learning_rate": 0.03,
+        "max_iter": 500,
+        "max_depth": None,
+        "max_leaf_nodes": 31,
+        "min_samples_leaf": 5,
+        "l2_regularization": 0.0,
+    },
+}
+
+
+def cargar_mejores_parametros(ruta=RUTA_BEST_PARAMS):
+    """Carga los mejores hiperparámetros guardados por la Persona 1.
+
+    Si el archivo no existe o no contiene las claves esperadas, utiliza los
+    valores de respaldo documentados en la entrega de la Persona 1.
+    """
+    parametros = {
+        "ridge_robusto": dict(PARAMETROS_POR_DEFECTO["ridge_robusto"]),
+        "boosting_optimizado": dict(PARAMETROS_POR_DEFECTO["boosting_optimizado"]),
+    }
+
     ruta = Path(ruta)
-    ruta.parent.mkdir(parents=True, exist_ok=True)
-    ruta.write_text(json.dumps(objeto, indent=2, default=str, ensure_ascii=False), encoding="utf-8")
-    return ruta
+    if not ruta.exists():
+        return parametros
+
+    with ruta.open(encoding="utf-8") as archivo:
+        contenido = json.load(archivo)
+
+    for clave in parametros:
+        if clave in contenido and isinstance(contenido[clave], dict):
+            parametros[clave].update(contenido[clave])
+
+    return parametros
+
+
+def construir_random_forest(**parametros):
+    """Random Forest: bagging de árboles, útil para reducir varianza."""
+    base = dict(n_estimators=300, random_state=RANDOM_STATE, n_jobs=-1)
+    base.update(parametros)
+    return RandomForestRegressor(**base)
+
+
+def construir_extra_trees(**parametros):
+    """Extra Trees: bagging con splits aleatorios, alternativa más rápida que Random Forest."""
+    base = dict(n_estimators=300, random_state=RANDOM_STATE, n_jobs=-1)
+    base.update(parametros)
+    return ExtraTreesRegressor(**base)
+
+
+def componentes_ensamble(X, parametros=None, incluir_rf=True):
+    """Construye los modelos base del ensamble con los hiperparámetros óptimos.
+
+    Devuelve una lista de tuplas (nombre, pipeline), lista para VotingRegressor
+    o StackingRegressor. Cada componente conserva su propio Pipeline, de modo
+    que el preprocesamiento se ajusta dentro de cada partición de CV.
+    """
+    if parametros is None:
+        parametros = cargar_mejores_parametros()
+
+    ridge = construir_ridge_robusto(
+        X,
+        alpha=parametros["ridge_robusto"]["alpha"],
+        recorte_z=parametros["ridge_robusto"]["recorte_z"],
+    )
+
+    boosting = construir_pipeline(
+        construir_boosting_es(**parametros["boosting_optimizado"]),
+        X,
+    )
+
+    estimadores = [
+        ("ridge", ridge),
+        ("boosting", boosting),
+    ]
+
+    if incluir_rf:
+        estimadores.append(
+            ("random_forest", construir_pipeline(construir_random_forest(), X))
+        )
+
+    return estimadores
+
+
+def construir_voting(X, pesos=None, incluir_rf=True, parametros=None):
+    """VotingRegressor: promedio (ponderado) de Ridge robusto, boosting y Random Forest."""
+    estimadores = componentes_ensamble(
+        X,
+        parametros=parametros,
+        incluir_rf=incluir_rf,
+    )
+
+    if pesos is None:
+        pesos = [1] * len(estimadores)
+
+    return VotingRegressor(
+        estimators=estimadores,
+        weights=pesos,
+    )
+
+
+def construir_stacking(X, meta_alpha=1.0, cv_interno=5, parametros=None):
+    """StackingRegressor: Ridge, boosting y Random Forest como base; Ridge como meta-modelo.
+
+    El CV interno evita que el meta-modelo aprenda con predicciones generadas
+    por modelos base ajustados sobre las mismas observaciones (fuga de datos).
+    """
+    estimadores = componentes_ensamble(
+        X,
+        parametros=parametros,
+        incluir_rf=True,
+    )
+
+    return StackingRegressor(
+        estimators=estimadores,
+        final_estimator=Ridge(alpha=meta_alpha),
+        cv=KFold(
+            n_splits=cv_interno,
+            shuffle=True,
+            random_state=RANDOM_STATE,
+        ),
+        n_jobs=-1,
+    )
