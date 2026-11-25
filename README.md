@@ -550,10 +550,12 @@ y una cobertura ±10 % de 74,7 % (meta ≥ 70 %: cumple). Las metas no se modifi
 - **Alcance.** Las métricas describen el desempeño sobre las 586 viviendas de prueba del dataset Ames; no
   demuestran beneficios operacionales ni validez en otros mercados.
 
-### 12.4. Importancia de variables
 
-La importancia por permutación (sobre las variables originales, con el modelo seleccionado) y los coeficientes
-del Ridge se muestran en `images/modelos_importancia.png`. Expresan asociaciones predictivas, no efectos causales.
+### 12.4. Criterio y justificación de la selección final (IE12)
+El criterio formal se definió antes de observar el conjunto de prueba: seleccionar el modelo con **menor MAE promedio en validación cruzada**, desempatando por estabilidad entre folds, RMSE y cobertura ±10 %.
+- **Ganador:** **Stacking**, con el menor MAE en CV (**13.659 ± 1.360 USD** frente a **14.084 ± 1.095 USD** del Ridge robusto, una mejora media de **425,45 USD por fold**).
+- **Contraste estadístico:** El Stacking reduce el MAE respecto al Ridge robusto en **los 5 de 5 folds** (test *t* pareado: $t = -2,7538$, $p = 0,0512$; Wilcoxon: $W = 0,0$, $p = 0,0625$, límite inferior posible para $n = 5$ particiones).
+- **Desempeño en prueba:** Logra un MAE de **13.108 USD** (reducción de **79,5 %** frente a la mediana, superando la meta de ≥ 15 %) y una cobertura ±10 % de **79,9 %** (IC 95 %: 76,4 % – 82,9 %, superando la meta de ≥ 70 %).
 
 ### 12.5. Análisis de errores del modelo seleccionado
 
@@ -696,42 +698,29 @@ edificación); S2 es el grupo más ligado a los precios bajos; S4 y S5 tienen m�
 
 ### 14.1. Desempeño del modelo ganador por segmento
 
-Modelo: Boosting ajustado de la Parte 2, evaluado solo sobre las 586 viviendas de prueba. El total reproduce
-las cifras de la sección 12 (MAE 15.350 USD; cobertura 74,7 %). Detalle en `models/results_segments.csv`
-y [images/segmentos_error_modelo.png](images/segmentos_error_modelo.png).
+Modelo: **Stacking** (`models/best_model.joblib`), evaluado sobre las 586 viviendas de prueba (MAE 13.108 USD; cobertura 79,9 %; mejora vs. mediana 79,5 %). Detalle en `models/results_segments.csv` y [images/segmentos_error_modelo.png](images/segmentos_error_modelo.png).
 
-| Segmento | n prueba | MAE (USD) | Cobertura ±10 % | IC 95 % de la cobertura | Mejora del MAE vs. mediana |
-|---|---:|---:|---:|---|---:|
-| S1 Dúplex y multifamiliares | 26 | 10.013 | 73,1 % | 53,9 - 86,3 % | 70,2 % |
-| S2 Antiguas y compactas | 135 | 10.017 | 69,6 % | 61,4 - 76,8 % | 78,2 % |
-| S3 Un piso de tamaño medio | 151 | 9.297 | 76,8 % | 69,5 - 82,8 % | 61,4 % |
-| S4 Un piso reciente, mayor calidad | 132 | 26.177 | 71,2 % | 63,0 - 78,2 % | 76,5 % |
-| S5 Dos pisos amplias, recientes | 142 | 17.768 | 81,0 % | 73,7 - 86,6 % | 79,0 % |
-| **Total** | **586** | **15.350** | **74,7 %** | **71,1 - 78,1 %** | **76,0 %** |
+| Segmento | n prueba | MAE (USD) | Error rel. mediano | Cobertura ±10 % | IC 95 % cobertura | Mejora MAE vs. mediana |
+|---|---:|---:|---:|---:|---|---:|
+| S1 Dúplex y multifamiliares | 26 | 10.233 | 7,2 % | 61,5 % | 42,5 % – 77,6 % | 69,6 % |
+| S2 Antiguas y compactas | 135 | 9.046 | 6,0 % | 73,3 % | 65,3 % – 80,1 % | 80,3 % |
+| S3 Un piso de tamaño medio, años 60 | 151 | 8.153 | 4,3 % | 84,8 % | 78,2 % – 89,6 % | 66,2 % |
+| S4 Un piso reciente, mayor calidad | 132 | 21.828 | 5,0 % | 78,0 % | 70,2 % – 84,2 % | 80,4 % |
+| S5 Dos pisos amplias, recientes | 142 | 14.660 | 4,4 % | 85,9 % | 79,2 % – 90,7 % | 82,7 % |
+| **Total** | **586** | **13.108** | **4,9 %** | **79,9 %** | **76,4 % – 82,9 %** | **79,5 %** |
 
 Lectura frente a los KPIs (sección 4):
-
-- **Cobertura (meta ≥ 70 %).** Cumple en el total. Por segmento, solo S5 tiene el intervalo completo sobre
-  70 %; S2 queda 0,4 puntos bajo la meta en la cifra puntual, pero es estadísticamente indistinguible de 70 %;
-  S1 no es concluyente por tener 26 viviendas.
-- **Mejora del MAE (meta ≥ 15 %).** Se cumple con holgura en todos los segmentos (61,4 % a 79,0 %).
-- **Error en dólares.** Crece con el valor de la vivienda: en S4 el MAE es 26.177 USD, 1,7 veces el global.
-  En términos relativos las diferencias son menores (error relativo mediano entre 4,8 % y 6,1 %).
+- **Cobertura (meta ≥ 70 %):** Se cumple globalmente (79,9 %). Con el Stacking, **cuatro de los cinco segmentos (S2–S5) superan el 70 % puntual**, y en **S3, S4 y S5 incluso el límite inferior del IC 95 % supera la meta**. Solo S1 queda bajo 70 % (61,5 %), con un intervalo amplio por su bajo tamaño muestral ($n = 26$).
+- **Mejora del MAE (meta ≥ 15 %):** Se cumple ampliamente en todos los segmentos (66,2 % a 82,7 %).
+- **Error en dólares:** En viviendas de mayor valor (S4 y S5), el MAE absoluto es más alto (21.828 y 14.660 USD), pero el error relativo mediano se mantiene bajo (5,0 % y 4,4 %).
 
 ### 14.2. Recomendaciones
 
-Cada una se apoya en un resultado de la sección 14.1. Ninguna afirma ahorros, tiempos de venta ni beneficios
-operacionales, porque no se midieron.
-
-1. **Usar el modelo como primera estimación en S3 y S5, con revisión de una muestra.** Mejor cobertura
-   puntual (76,8 % y 81,0 %) y 53 % de las viviendas. Solo en S5 el intervalo queda sobre la meta.
-2. **Exigir revisión de un tasador en S2.** Cobertura de 69,6 % (la más baja) y 65 % de sus viviendas en el
-   cuartil inferior de precios, donde la Parte 2 midió 63,3 %. Revisar una muestra hasta confirmar si la
-   cobertura real supera 70 %.
-3. **En S4, comunicar la estimación como rango en USD** (aprox. ± 26.000 USD, su MAE) y no como cifra única.
-4. **No usar el modelo en dúplex y multifamiliares (S1) hasta reunir más datos.** Solo 26 viviendas de
-   prueba (IC 53,9 - 86,3 %). Derivarlos a valoración manual.
-5. **Informar los KPIs por segmento y no solo el total.** El 74,7 % global oculta un rango de 69,6 % a 81,0 %.
+1. **Priorizar el uso del modelo como referencia inicial en S3, S5 y S4 (72 % de las viviendas de prueba):** En estos tres segmentos la cobertura supera el 78 % (con IC 95 % completamente sobre la meta del 70 %) y el error relativo mediano es ≤ 5,0 %.
+2. **En S4 (un piso reciente, mayor calidad), comunicar la estimación como rango en USD:** Dado su MAE absoluto de ~21.800 USD, acompañar la predicción puntual con un margen de referencia para evitar falsas expectativas de precisión exacta en propiedades de alto valor.
+3. **Aplicar revisión selectiva en S2 (antiguas y compactas) y propiedades del cuartil Q1 (≤ 129.000 USD):** Aunque el Stacking elevó la cobertura de S2 al 73,3 %, el cuartil de precios más bajos mantiene una cobertura del 65,5 %, por lo que conviene validar con un tasador las propiedades más económicas.
+4. **Derivar dúplex y multifamiliares (S1) a valoración manual:** Presenta la cobertura más baja (61,5 %) y solo 26 casos de prueba (IC 95 %: 42,5 % – 77,6 %), por lo que no se recomienda automatizar su referencia sin recopilar más registros.
+5. **Reportar métricas segmentadas en el tablero comercial:** El promedio global (79,9 %) oculta diferencias relevantes entre tipologías de vivienda (61,5 % en S1 vs. 85,9 % en S5).
 
 ## 15. Limitaciones, revisión ética final y trabajo futuro
 
@@ -751,9 +740,7 @@ operacionales, porque no se midieron.
 
 ### 15.2. Revisión ética final
 
-- **Diferencias de desempeño entre grupos.** La cobertura va de 69,6 % (S2) a 81,0 % (S5). S2 reúne las
-  viviendas más baratas, que reciben las estimaciones menos fiables; usar el modelo sin revisión podría
-  perjudicar de forma sistemática a quien compre o venda ese tipo de propiedad. La recomendación 2 lo mitiga.
+-- **Diferencias de desempeño entre grupos.** La cobertura va de 61,5 % (S1) a 85,9 % (S5), y en el cuartil de precios más bajos (Q1 ≤ 129.000 USD) es de 65,5 %. Aplicar el modelo sin revisión en viviendas económicas o multifamiliares podría generar referencias menos precisas para esos propietarios; las recomendaciones 3 y 4 mitigan este riesgo.
 - **Segmentación estigmatizante.** Los nombres usan solo características de la edificación; no hay
   segmentos rotulados por barrio ni se atribuyen rasgos a los habitantes. `Neighborhood` influyó en la formación
   de los grupos, pero los resultados describen propiedades.
